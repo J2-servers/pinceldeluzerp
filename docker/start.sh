@@ -14,5 +14,27 @@ API_PID="$!"
 nginx -g "daemon off;" &
 NGINX_PID="$!"
 
-trap 'kill "$API_PID" "$NGINX_PID" 2>/dev/null || true' TERM INT
-wait -n "$API_PID" "$NGINX_PID"
+shutdown() {
+  kill "$API_PID" "$NGINX_PID" 2>/dev/null || true
+  wait "$API_PID" "$NGINX_PID" 2>/dev/null || true
+}
+
+trap shutdown TERM INT EXIT
+
+while :; do
+  if ! kill -0 "$API_PID" 2>/dev/null; then
+    echo "API Python parou. Encerrando container."
+    kill "$NGINX_PID" 2>/dev/null || true
+    wait "$NGINX_PID" 2>/dev/null || true
+    exit 1
+  fi
+
+  if ! kill -0 "$NGINX_PID" 2>/dev/null; then
+    echo "Nginx parou. Encerrando container."
+    kill "$API_PID" 2>/dev/null || true
+    wait "$API_PID" 2>/dev/null || true
+    exit 1
+  fi
+
+  sleep 2
+done
