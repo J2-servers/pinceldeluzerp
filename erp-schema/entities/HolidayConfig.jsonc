@@ -1,0 +1,29 @@
+{
+  "name": "HolidayConfig",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do feriado"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data"
+    },
+    "recurring": {
+      "type": "boolean",
+      "default": false,
+      "description": "Recorrente"
+    },
+    "affects_deadline": {
+      "type": "boolean",
+      "default": true,
+      "description": "Afeta prazo"
+    }
+  },
+  "required": [
+    "name",
+    "date"
+  ]
+}

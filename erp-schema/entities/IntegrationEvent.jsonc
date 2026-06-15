@@ -1,0 +1,42 @@
+{
+  "name": "IntegrationEvent",
+  "type": "object",
+  "properties": {
+    "integration_name": {
+      "type": "string",
+      "description": "Integra\u00e7\u00e3o"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Tipo do evento"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "Refer\u00eancia"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "received",
+        "processed",
+        "failed"
+      ],
+      "default": "received",
+      "description": "Status"
+    },
+    "payload_excerpt": {
+      "type": "string",
+      "description": "Resumo do payload"
+    },
+    "processed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Processado em"
+    }
+  },
+  "required": [
+    "integration_name",
+    "event_type",
+    "status"
+  ]
+}

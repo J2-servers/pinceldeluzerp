@@ -1,0 +1,53 @@
+{
+  "name": "StockCountSession",
+  "type": "object",
+  "properties": {
+    "session_number": {
+      "type": "string",
+      "description": "N\u00famero da contagem"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Dep\u00f3sito"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "in_progress",
+        "finished",
+        "cancelled"
+      ],
+      "default": "planned",
+      "description": "Status"
+    },
+    "scheduled_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data programada"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "In\u00edcio"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fim"
+    },
+    "responsible_user_email": {
+      "type": "string",
+      "description": "Respons\u00e1vel"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "session_number",
+    "warehouse_id",
+    "status"
+  ]
+}

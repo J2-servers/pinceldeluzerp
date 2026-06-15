@@ -1,0 +1,77 @@
+{
+  "name": "CompanyAsset",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do ativo"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "maquinas",
+        "veiculos",
+        "moveis",
+        "informatica",
+        "ferramentas",
+        "equipamentos",
+        "outros"
+      ],
+      "description": "Categoria"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o"
+    },
+    "purchase_value": {
+      "type": "number",
+      "description": "Valor de compra"
+    },
+    "current_value": {
+      "type": "number",
+      "description": "Valor atual"
+    },
+    "depreciation_rate": {
+      "type": "number",
+      "description": "Taxa de deprecia\u00e7\u00e3o (%/ano)"
+    },
+    "serial_number": {
+      "type": "string",
+      "description": "N\u00famero de s\u00e9rie"
+    },
+    "location": {
+      "type": "string",
+      "description": "Localiza\u00e7\u00e3o"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "bom",
+        "regular",
+        "ruim",
+        "inativo"
+      ],
+      "default": "bom",
+      "description": "Condi\u00e7\u00e3o"
+    },
+    "responsible_partner": {
+      "type": "string",
+      "enum": [
+        "Maeli",
+        "Wesley",
+        "Juliano"
+      ],
+      "description": "S\u00f3cio respons\u00e1vel"
+    },
+    "purchase_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de compra"
+    }
+  },
+  "required": [
+    "name",
+    "category"
+  ]
+}

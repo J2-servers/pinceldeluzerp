@@ -1,0 +1,31 @@
+{
+  "name": "ProductCategory",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da categoria"
+    },
+    "code": {
+      "type": "string",
+      "description": "C\u00f3digo interno da categoria"
+    },
+    "parent_category_id": {
+      "type": "string",
+      "description": "Categoria pai"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    },
+    "sort_order": {
+      "type": "number",
+      "description": "Ordem de exibi\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

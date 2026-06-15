@@ -1,0 +1,83 @@
+{
+  "name": "ProductionQueue",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Cliente"
+    },
+    "sales_order_id": {
+      "type": "string",
+      "description": "ID do pedido de venda"
+    },
+    "service_order_id": {
+      "type": "string",
+      "description": "ID da OS"
+    },
+    "material": {
+      "type": "string",
+      "description": "Material"
+    },
+    "machine": {
+      "type": "string",
+      "description": "M\u00e1quina"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "normal",
+        "alta",
+        "urgente"
+      ],
+      "default": "normal",
+      "description": "Prioridade"
+    },
+    "operation_type": {
+      "type": "string",
+      "enum": [
+        "corte",
+        "gravacao",
+        "misto"
+      ],
+      "description": "Tipo de opera\u00e7\u00e3o"
+    },
+    "perimeter": {
+      "type": "number",
+      "description": "Per\u00edmetro (mm)"
+    },
+    "engraving_area": {
+      "type": "number",
+      "description": "\u00c1rea de grava\u00e7\u00e3o (mm\u00b2)"
+    },
+    "estimated_time": {
+      "type": "number",
+      "description": "Tempo estimado (minutos)"
+    },
+    "actual_time": {
+      "type": "number",
+      "description": "Tempo real (minutos)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aguardando",
+        "na_ponteira",
+        "cortando",
+        "limpeza",
+        "montagem",
+        "concluido"
+      ],
+      "default": "aguardando",
+      "description": "Status"
+    }
+  },
+  "required": [
+    "title",
+    "client_name"
+  ]
+}

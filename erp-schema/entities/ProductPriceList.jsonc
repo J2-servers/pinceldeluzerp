@@ -1,0 +1,36 @@
+{
+  "name": "ProductPriceList",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da tabela"
+    },
+    "code": {
+      "type": "string",
+      "description": "C\u00f3digo da tabela"
+    },
+    "channel": {
+      "type": "string",
+      "description": "Canal comercial"
+    },
+    "currency": {
+      "type": "string",
+      "default": "BRL",
+      "description": "Moeda"
+    },
+    "priority": {
+      "type": "number",
+      "description": "Prioridade"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

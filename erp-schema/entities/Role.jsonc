@@ -1,0 +1,27 @@
+{
+  "name": "Role",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do papel"
+    },
+    "code": {
+      "type": "string",
+      "description": "C\u00f3digo do papel"
+    },
+    "scope_level": {
+      "type": "string",
+      "description": "Escopo de aplica\u00e7\u00e3o"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativo"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

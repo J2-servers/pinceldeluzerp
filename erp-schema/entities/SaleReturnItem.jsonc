@@ -1,0 +1,40 @@
+{
+  "name": "SaleReturnItem",
+  "type": "object",
+  "properties": {
+    "sale_return_id": {
+      "type": "string",
+      "description": "Devolu\u00e7\u00e3o"
+    },
+    "product_variant_id": {
+      "type": "string",
+      "description": "Variante"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Pre\u00e7o unit\u00e1rio"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Motivo do item"
+    },
+    "restock": {
+      "type": "boolean",
+      "default": true,
+      "description": "Retorna ao estoque"
+    }
+  },
+  "required": [
+    "sale_return_id",
+    "quantity"
+  ]
+}

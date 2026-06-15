@@ -1,0 +1,28 @@
+{
+  "name": "ProductUnit",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da unidade"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "S\u00edmbolo da unidade"
+    },
+    "precision": {
+      "type": "number",
+      "default": 2,
+      "description": "Precis\u00e3o decimal"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "name",
+    "symbol"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "name": "FixedExpense",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da despesa"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Valor mensal"
+    },
+    "due_day": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 31,
+      "description": "Dia de vencimento"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "aluguel",
+        "energia",
+        "agua",
+        "internet",
+        "telefone",
+        "software",
+        "contador",
+        "seguro",
+        "manutencao",
+        "marketing",
+        "combustivel",
+        "limpeza",
+        "outros"
+      ],
+      "description": "Categoria"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "boleto",
+        "debito_automatico",
+        "cartao",
+        "dinheiro"
+      ],
+      "description": "Forma de pagamento"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "name",
+    "amount",
+    "due_day"
+  ]
+}

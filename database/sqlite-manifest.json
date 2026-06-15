@@ -1,0 +1,638 @@
+{
+  "generated_at": "2026-06-15T02:01:06.496989+00:00",
+  "database_file": "database\\pincel-luz-erp.sqlite",
+  "schema_sql_file": "database\\schema.sql",
+  "source": {
+    "entity_schemas": "erp-schema/entities/*.jsonc",
+    "data": "dados-json/*.data.json",
+    "backup_manifest": "manifesto-backup.json"
+  },
+  "tables_count": 78,
+  "records_count": 396,
+  "tables": [
+    {
+      "table_name": "AccountPayable",
+      "source_schema": "erp-schema/entities/AccountPayable.jsonc",
+      "source_data": "dados-json/AccountPayable.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "AccountReceivable",
+      "source_schema": "erp-schema/entities/AccountReceivable.jsonc",
+      "source_data": "dados-json/AccountReceivable.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "AssetMaintenance",
+      "source_schema": "erp-schema/entities/AssetMaintenance.jsonc",
+      "source_data": "dados-json/AssetMaintenance.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Attachment",
+      "source_schema": "erp-schema/entities/Attachment.jsonc",
+      "source_data": "dados-json/Attachment.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "AuditLog",
+      "source_schema": "erp-schema/entities/AuditLog.jsonc",
+      "source_data": "dados-json/AuditLog.data.json",
+      "records_count": 157,
+      "imported_count": 157,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "CalendarEvent",
+      "source_schema": "erp-schema/entities/CalendarEvent.jsonc",
+      "source_data": "dados-json/CalendarEvent.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Client",
+      "source_schema": "erp-schema/entities/Client.jsonc",
+      "source_data": "dados-json/Client.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ClientPriceHistory",
+      "source_schema": "erp-schema/entities/ClientPriceHistory.jsonc",
+      "source_data": "dados-json/ClientPriceHistory.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "CollectionRule",
+      "source_schema": "erp-schema/entities/CollectionRule.jsonc",
+      "source_data": "dados-json/CollectionRule.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "CompanyAsset",
+      "source_schema": "erp-schema/entities/CompanyAsset.jsonc",
+      "source_data": "dados-json/CompanyAsset.data.json",
+      "records_count": 7,
+      "imported_count": 7,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "CompanyConfig",
+      "source_schema": "erp-schema/entities/CompanyConfig.jsonc",
+      "source_data": "dados-json/CompanyConfig.data.json",
+      "records_count": 1,
+      "imported_count": 1,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "CrmReminder",
+      "source_schema": "erp-schema/entities/CrmReminder.jsonc",
+      "source_data": "dados-json/CrmReminder.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Customer",
+      "source_schema": "erp-schema/entities/Customer.jsonc",
+      "source_data": "dados-json/Customer.data.json",
+      "records_count": 19,
+      "imported_count": 19,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ERPRequirement",
+      "source_schema": "erp-schema/entities/ERPRequirement.jsonc",
+      "source_data": "dados-json/ERPRequirement.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "EpiRecord",
+      "source_schema": "erp-schema/entities/EpiRecord.jsonc",
+      "source_data": "dados-json/EpiRecord.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "FiscalConfig",
+      "source_schema": "erp-schema/entities/FiscalConfig.jsonc",
+      "source_data": "dados-json/FiscalConfig.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "FixedExpense",
+      "source_schema": "erp-schema/entities/FixedExpense.jsonc",
+      "source_data": "dados-json/FixedExpense.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "FreightConfig",
+      "source_schema": "erp-schema/entities/FreightConfig.jsonc",
+      "source_data": "dados-json/FreightConfig.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Goal",
+      "source_schema": "erp-schema/entities/Goal.jsonc",
+      "source_data": "dados-json/Goal.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "HolidayConfig",
+      "source_schema": "erp-schema/entities/HolidayConfig.jsonc",
+      "source_data": "dados-json/HolidayConfig.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "IntegrationEvent",
+      "source_schema": "erp-schema/entities/IntegrationEvent.jsonc",
+      "source_data": "dados-json/IntegrationEvent.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "IntegrationFailureLog",
+      "source_schema": "erp-schema/entities/IntegrationFailureLog.jsonc",
+      "source_data": "dados-json/IntegrationFailureLog.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "LaserTube",
+      "source_schema": "erp-schema/entities/LaserTube.jsonc",
+      "source_data": "dados-json/LaserTube.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "LotBatch",
+      "source_schema": "erp-schema/entities/LotBatch.jsonc",
+      "source_data": "dados-json/LotBatch.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "MachineCost",
+      "source_schema": "erp-schema/entities/MachineCost.jsonc",
+      "source_data": "dados-json/MachineCost.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "MaintenanceChecklist",
+      "source_schema": "erp-schema/entities/MaintenanceChecklist.jsonc",
+      "source_data": "dados-json/MaintenanceChecklist.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "MarkupRule",
+      "source_schema": "erp-schema/entities/MarkupRule.jsonc",
+      "source_data": "dados-json/MarkupRule.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "MaterialParameter",
+      "source_schema": "erp-schema/entities/MaterialParameter.jsonc",
+      "source_data": "dados-json/MaterialParameter.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "NotaFiscal",
+      "source_schema": "erp-schema/entities/NotaFiscal.jsonc",
+      "source_data": "dados-json/NotaFiscal.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "OperationalLoss",
+      "source_schema": "erp-schema/entities/OperationalLoss.jsonc",
+      "source_data": "dados-json/OperationalLoss.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "OperationalPreset",
+      "source_schema": "erp-schema/entities/OperationalPreset.jsonc",
+      "source_data": "dados-json/OperationalPreset.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "OrderMessage",
+      "source_schema": "erp-schema/entities/OrderMessage.jsonc",
+      "source_data": "dados-json/OrderMessage.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "PartnerCapital",
+      "source_schema": "erp-schema/entities/PartnerCapital.jsonc",
+      "source_data": "dados-json/PartnerCapital.data.json",
+      "records_count": 1,
+      "imported_count": 1,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "PermissionRule",
+      "source_schema": "erp-schema/entities/PermissionRule.jsonc",
+      "source_data": "dados-json/PermissionRule.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Product",
+      "source_schema": "erp-schema/entities/Product.jsonc",
+      "source_data": "dados-json/Product.data.json",
+      "records_count": 22,
+      "imported_count": 22,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductAlternative",
+      "source_schema": "erp-schema/entities/ProductAlternative.jsonc",
+      "source_data": "dados-json/ProductAlternative.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductAttribute",
+      "source_schema": "erp-schema/entities/ProductAttribute.jsonc",
+      "source_data": "dados-json/ProductAttribute.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductAttributeValue",
+      "source_schema": "erp-schema/entities/ProductAttributeValue.jsonc",
+      "source_data": "dados-json/ProductAttributeValue.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductBarcode",
+      "source_schema": "erp-schema/entities/ProductBarcode.jsonc",
+      "source_data": "dados-json/ProductBarcode.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductBundle",
+      "source_schema": "erp-schema/entities/ProductBundle.jsonc",
+      "source_data": "dados-json/ProductBundle.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductCategory",
+      "source_schema": "erp-schema/entities/ProductCategory.jsonc",
+      "source_data": "dados-json/ProductCategory.data.json",
+      "records_count": 3,
+      "imported_count": 3,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductMaster",
+      "source_schema": "erp-schema/entities/ProductMaster.jsonc",
+      "source_data": "dados-json/ProductMaster.data.json",
+      "records_count": 24,
+      "imported_count": 24,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductPriceList",
+      "source_schema": "erp-schema/entities/ProductPriceList.jsonc",
+      "source_data": "dados-json/ProductPriceList.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductPriceRule",
+      "source_schema": "erp-schema/entities/ProductPriceRule.jsonc",
+      "source_data": "dados-json/ProductPriceRule.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductQuote",
+      "source_schema": "erp-schema/entities/ProductQuote.jsonc",
+      "source_data": "dados-json/ProductQuote.data.json",
+      "records_count": 17,
+      "imported_count": 17,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductUnit",
+      "source_schema": "erp-schema/entities/ProductUnit.jsonc",
+      "source_data": "dados-json/ProductUnit.data.json",
+      "records_count": 2,
+      "imported_count": 2,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductVariant",
+      "source_schema": "erp-schema/entities/ProductVariant.jsonc",
+      "source_data": "dados-json/ProductVariant.data.json",
+      "records_count": 24,
+      "imported_count": 24,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ProductionQueue",
+      "source_schema": "erp-schema/entities/ProductionQueue.jsonc",
+      "source_data": "dados-json/ProductionQueue.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "PurchaseOrder",
+      "source_schema": "erp-schema/entities/PurchaseOrder.jsonc",
+      "source_data": "dados-json/PurchaseOrder.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Quotation",
+      "source_schema": "erp-schema/entities/Quotation.jsonc",
+      "source_data": "dados-json/Quotation.data.json",
+      "records_count": 23,
+      "imported_count": 23,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "QuotationItem",
+      "source_schema": "erp-schema/entities/QuotationItem.jsonc",
+      "source_data": "dados-json/QuotationItem.data.json",
+      "records_count": 46,
+      "imported_count": 46,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Quote",
+      "source_schema": "erp-schema/entities/Quote.jsonc",
+      "source_data": "dados-json/Quote.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "QuoteCatalogItem",
+      "source_schema": "erp-schema/entities/QuoteCatalogItem.jsonc",
+      "source_data": "dados-json/QuoteCatalogItem.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Role",
+      "source_schema": "erp-schema/entities/Role.jsonc",
+      "source_data": "dados-json/Role.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "SaleReturn",
+      "source_schema": "erp-schema/entities/SaleReturn.jsonc",
+      "source_data": "dados-json/SaleReturn.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "SaleReturnItem",
+      "source_schema": "erp-schema/entities/SaleReturnItem.jsonc",
+      "source_data": "dados-json/SaleReturnItem.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "SalesOrder",
+      "source_schema": "erp-schema/entities/SalesOrder.jsonc",
+      "source_data": "dados-json/SalesOrder.data.json",
+      "records_count": 5,
+      "imported_count": 5,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "SalesOrderItem",
+      "source_schema": "erp-schema/entities/SalesOrderItem.jsonc",
+      "source_data": "dados-json/SalesOrderItem.data.json",
+      "records_count": 11,
+      "imported_count": 11,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ScrapInventory",
+      "source_schema": "erp-schema/entities/ScrapInventory.jsonc",
+      "source_data": "dados-json/ScrapInventory.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "SellerCommission",
+      "source_schema": "erp-schema/entities/SellerCommission.jsonc",
+      "source_data": "dados-json/SellerCommission.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "SerialNumber",
+      "source_schema": "erp-schema/entities/SerialNumber.jsonc",
+      "source_data": "dados-json/SerialNumber.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "ServiceOrder",
+      "source_schema": "erp-schema/entities/ServiceOrder.jsonc",
+      "source_data": "dados-json/ServiceOrder.data.json",
+      "records_count": 3,
+      "imported_count": 3,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockAdjustment",
+      "source_schema": "erp-schema/entities/StockAdjustment.jsonc",
+      "source_data": "dados-json/StockAdjustment.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockBalanceSnapshot",
+      "source_schema": "erp-schema/entities/StockBalanceSnapshot.jsonc",
+      "source_data": "dados-json/StockBalanceSnapshot.data.json",
+      "records_count": 24,
+      "imported_count": 24,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockCountItem",
+      "source_schema": "erp-schema/entities/StockCountItem.jsonc",
+      "source_data": "dados-json/StockCountItem.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockCountSession",
+      "source_schema": "erp-schema/entities/StockCountSession.jsonc",
+      "source_data": "dados-json/StockCountSession.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockLocation",
+      "source_schema": "erp-schema/entities/StockLocation.jsonc",
+      "source_data": "dados-json/StockLocation.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockMovement",
+      "source_schema": "erp-schema/entities/StockMovement.jsonc",
+      "source_data": "dados-json/StockMovement.data.json",
+      "records_count": 1,
+      "imported_count": 1,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockMovementItem",
+      "source_schema": "erp-schema/entities/StockMovementItem.jsonc",
+      "source_data": "dados-json/StockMovementItem.data.json",
+      "records_count": 1,
+      "imported_count": 1,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "StockReservation",
+      "source_schema": "erp-schema/entities/StockReservation.jsonc",
+      "source_data": "dados-json/StockReservation.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Supplier",
+      "source_schema": "erp-schema/entities/Supplier.jsonc",
+      "source_data": "dados-json/Supplier.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "TaxConfig",
+      "source_schema": "erp-schema/entities/TaxConfig.jsonc",
+      "source_data": "dados-json/TaxConfig.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "TimeEntry",
+      "source_schema": "erp-schema/entities/TimeEntry.jsonc",
+      "source_data": "dados-json/TimeEntry.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Transaction",
+      "source_schema": "erp-schema/entities/Transaction.jsonc",
+      "source_data": "dados-json/Transaction.data.json",
+      "records_count": 3,
+      "imported_count": 3,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "User",
+      "source_schema": "erp-schema/entities/User.jsonc",
+      "source_data": "dados-json/User.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "VolumePricing",
+      "source_schema": "erp-schema/entities/VolumePricing.jsonc",
+      "source_data": "dados-json/VolumePricing.data.json",
+      "records_count": 0,
+      "imported_count": 0,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "Warehouse",
+      "source_schema": "erp-schema/entities/Warehouse.jsonc",
+      "source_data": "dados-json/Warehouse.data.json",
+      "records_count": 1,
+      "imported_count": 1,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    },
+    {
+      "table_name": "WhatsAppConfig",
+      "source_schema": "erp-schema/entities/WhatsAppConfig.jsonc",
+      "source_data": "dados-json/WhatsAppConfig.data.json",
+      "records_count": 1,
+      "imported_count": 1,
+      "generated_at": "2026-06-15T02:01:06.496989+00:00"
+    }
+  ]
+}

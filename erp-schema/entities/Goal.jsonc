@@ -1,0 +1,44 @@
+{
+  "name": "Goal",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo da meta"
+    },
+    "target_value": {
+      "type": "number",
+      "description": "Valor alvo"
+    },
+    "current_value": {
+      "type": "number",
+      "default": 0,
+      "description": "Valor atual"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "clientes",
+        "lucro",
+        "producao",
+        "outros"
+      ],
+      "description": "Tipo"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date",
+      "description": "Prazo"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Conclu\u00edda"
+    }
+  },
+  "required": [
+    "title",
+    "target_value"
+  ]
+}

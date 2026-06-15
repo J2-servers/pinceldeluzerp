@@ -1,0 +1,88 @@
+{
+  "name": "ProductMaster",
+  "type": "object",
+  "properties": {
+    "sku_base": {
+      "type": "string",
+      "description": "Raiz do SKU"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome comercial"
+    },
+    "short_name": {
+      "type": "string",
+      "description": "Nome curto"
+    },
+    "item_type": {
+      "type": "string",
+      "enum": [
+        "stockable",
+        "service",
+        "consumable",
+        "kit",
+        "variant_parent",
+        "raw_material"
+      ],
+      "description": "Tipo do item"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Categoria"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Nome da categoria"
+    },
+    "unit_id": {
+      "type": "string",
+      "description": "Unidade"
+    },
+    "unit_name": {
+      "type": "string",
+      "description": "Nome da unidade"
+    },
+    "brand": {
+      "type": "string",
+      "description": "Marca"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o"
+    },
+    "sellable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Vend\u00e1vel"
+    },
+    "purchasable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Compr\u00e1vel"
+    },
+    "track_stock": {
+      "type": "boolean",
+      "default": true,
+      "description": "Controla estoque"
+    },
+    "has_variants": {
+      "type": "boolean",
+      "default": false,
+      "description": "Possui variantes"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativo"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Imagem"
+    }
+  },
+  "required": [
+    "sku_base",
+    "name",
+    "item_type"
+  ]
+}

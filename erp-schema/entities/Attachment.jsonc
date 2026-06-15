@@ -1,0 +1,39 @@
+{
+  "name": "Attachment",
+  "type": "object",
+  "properties": {
+    "entity_name": {
+      "type": "string",
+      "description": "Entidade de origem"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "Registro de origem"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Arquivo"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Nome do arquivo"
+    },
+    "file_type": {
+      "type": "string",
+      "description": "Tipo do arquivo"
+    },
+    "category": {
+      "type": "string",
+      "description": "Categoria do anexo"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "entity_name",
+    "entity_id",
+    "file_url"
+  ]
+}

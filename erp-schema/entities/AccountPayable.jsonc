@@ -1,0 +1,121 @@
+{
+  "name": "AccountPayable",
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Fornecedor"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Valor total"
+    },
+    "amount_paid": {
+      "type": "number",
+      "description": "Valor pago"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Vencimento"
+    },
+    "competence_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de compet\u00eancia"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "fornecedores",
+        "aluguel",
+        "salarios",
+        "impostos",
+        "manutencao",
+        "materiais",
+        "energia",
+        "internet",
+        "agua",
+        "gas",
+        "contabilidade",
+        "marketing",
+        "software",
+        "outros"
+      ],
+      "description": "Categoria"
+    },
+    "cost_center": {
+      "type": "string",
+      "enum": [
+        "producao",
+        "administrativo",
+        "comercial",
+        "geral"
+      ],
+      "description": "Centro de custo"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "dinheiro",
+        "cartao_credito",
+        "boleto",
+        "transferencia",
+        "debito_automatico"
+      ],
+      "description": "Forma de pagamento"
+    },
+    "installments": {
+      "type": "number",
+      "default": 1,
+      "description": "N\u00famero de parcelas"
+    },
+    "installment_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Parcela n\u00famero"
+    },
+    "paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "Pago"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do pagamento"
+    },
+    "paid_by_partner": {
+      "type": "string",
+      "enum": [
+        "Maeli",
+        "Wesley",
+        "Juliano"
+      ],
+      "description": "Pago por"
+    },
+    "recurrent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Recorrente"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    },
+    "attachment_url": {
+      "type": "string",
+      "description": "Comprovante"
+    }
+  },
+  "required": [
+    "description",
+    "amount",
+    "due_date"
+  ]
+}

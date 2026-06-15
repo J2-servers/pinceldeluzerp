@@ -1,0 +1,33 @@
+{
+  "name": "CompanyConfig",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string",
+      "description": "Nome da empresa"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "URL da logo"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Telefone principal"
+    },
+    "address": {
+      "type": "string",
+      "description": "Endere\u00e7o"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email da empresa"
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}

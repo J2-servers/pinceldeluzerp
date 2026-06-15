@@ -1,0 +1,105 @@
+{
+  "name": "FiscalConfig",
+  "type": "object",
+  "properties": {
+    "focusnfe_token": {
+      "type": "string",
+      "description": "Token de autentica\u00e7\u00e3o Focus NFe"
+    },
+    "ambiente": {
+      "type": "string",
+      "enum": [
+        "homologacao",
+        "producao"
+      ],
+      "default": "homologacao",
+      "description": "Ambiente da API"
+    },
+    "cnpj_emitente": {
+      "type": "string",
+      "description": "CNPJ do emitente (apenas n\u00fameros)"
+    },
+    "razao_social": {
+      "type": "string",
+      "description": "Raz\u00e3o social do emitente"
+    },
+    "nome_fantasia": {
+      "type": "string",
+      "description": "Nome fantasia"
+    },
+    "inscricao_municipal": {
+      "type": "string",
+      "description": "Inscri\u00e7\u00e3o Municipal (para NFS-e)"
+    },
+    "codigo_municipio": {
+      "type": "string",
+      "description": "C\u00f3digo IBGE do munic\u00edpio"
+    },
+    "logradouro": {
+      "type": "string",
+      "description": "Logradouro"
+    },
+    "numero": {
+      "type": "string",
+      "description": "N\u00famero"
+    },
+    "bairro": {
+      "type": "string",
+      "description": "Bairro"
+    },
+    "municipio": {
+      "type": "string",
+      "description": "Munic\u00edpio"
+    },
+    "uf": {
+      "type": "string",
+      "description": "UF (ex: SP)"
+    },
+    "cep": {
+      "type": "string",
+      "description": "CEP (apenas n\u00fameros)"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email do emitente"
+    },
+    "regime_tributario": {
+      "type": "string",
+      "enum": [
+        "1",
+        "2",
+        "3"
+      ],
+      "default": "1",
+      "description": "Regime: 1=Simples Nacional, 2=Simples Nacional Excesso, 3=Normal"
+    },
+    "numero_nfe_serie": {
+      "type": "number",
+      "default": 1,
+      "description": "S\u00e9rie da NF-e"
+    },
+    "proximo_numero_nfe": {
+      "type": "number",
+      "default": 1,
+      "description": "Pr\u00f3ximo n\u00famero NF-e"
+    },
+    "codigo_servico_padrao": {
+      "type": "string",
+      "description": "C\u00f3digo do servi\u00e7o padr\u00e3o (para NFS-e)"
+    },
+    "aliquota_iss": {
+      "type": "number",
+      "default": 2,
+      "description": "Al\u00edquota ISS % padr\u00e3o (para NFS-e)"
+    }
+  },
+  "required": [
+    "focusnfe_token",
+    "cnpj_emitente",
+    "razao_social"
+  ]
+}

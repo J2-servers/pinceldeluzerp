@@ -1,0 +1,52 @@
+{
+  "name": "MaterialParameter",
+  "type": "object",
+  "properties": {
+    "material": {
+      "type": "string",
+      "description": "Material"
+    },
+    "thickness": {
+      "type": "number",
+      "description": "Espessura (mm)"
+    },
+    "cut_speed": {
+      "type": "number",
+      "description": "Velocidade de corte (mm/s)"
+    },
+    "power": {
+      "type": "number",
+      "description": "Pot\u00eancia (%)"
+    },
+    "gas_type": {
+      "type": "string",
+      "enum": [
+        "ar",
+        "nitrogenio",
+        "oxigenio"
+      ],
+      "description": "Tipo de g\u00e1s"
+    },
+    "gas_pressure": {
+      "type": "number",
+      "description": "Press\u00e3o do g\u00e1s (bar)"
+    },
+    "focal_distance": {
+      "type": "number",
+      "description": "Dist\u00e2ncia focal (mm)"
+    },
+    "passes": {
+      "type": "number",
+      "default": 1,
+      "description": "N\u00famero de passes"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "material",
+    "thickness"
+  ]
+}

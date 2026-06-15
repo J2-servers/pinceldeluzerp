@@ -1,0 +1,71 @@
+{
+  "name": "PartnerCapital",
+  "type": "object",
+  "properties": {
+    "partner": {
+      "type": "string",
+      "enum": [
+        "Maeli",
+        "Wesley",
+        "Juliano"
+      ],
+      "description": "S\u00f3cio"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "aporte",
+        "retirada",
+        "pro_labore",
+        "dividendo",
+        "emprestimo_socio",
+        "devolucao_emprestimo"
+      ],
+      "description": "Tipo de movimenta\u00e7\u00e3o"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Valor"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "dinheiro",
+        "transferencia",
+        "cheque",
+        "bens",
+        "equipamentos"
+      ],
+      "description": "Forma"
+    },
+    "asset_description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do bem (se aporte em bens)"
+    },
+    "confirmed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Confirmado"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "partner",
+    "type",
+    "amount",
+    "date"
+  ]
+}

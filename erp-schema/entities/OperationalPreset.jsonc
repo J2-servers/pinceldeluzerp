@@ -1,0 +1,43 @@
+{
+  "name": "OperationalPreset",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do preset"
+    },
+    "preset_type": {
+      "type": "string",
+      "enum": [
+        "labor_hours",
+        "labor_rate",
+        "machine_minutes",
+        "machine_rate"
+      ],
+      "description": "Tipo do preset operacional"
+    },
+    "label": {
+      "type": "string",
+      "description": "Texto exibido na sele\u00e7\u00e3o"
+    },
+    "value": {
+      "type": "number",
+      "description": "Valor num\u00e9rico do preset"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Ordem de exibi\u00e7\u00e3o"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Preset ativo"
+    }
+  },
+  "required": [
+    "name",
+    "preset_type",
+    "value"
+  ]
+}

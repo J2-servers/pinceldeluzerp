@@ -1,0 +1,46 @@
+{
+  "name": "TaxConfig",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do imposto"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "simples_nacional",
+        "icms",
+        "iss",
+        "pis",
+        "cofins",
+        "irpj",
+        "csll"
+      ],
+      "description": "Tipo"
+    },
+    "rate": {
+      "type": "number",
+      "description": "Al\u00edquota (%)"
+    },
+    "calculation_base": {
+      "type": "string",
+      "enum": [
+        "faturamento",
+        "lucro",
+        "servico"
+      ],
+      "description": "Base de c\u00e1lculo"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativo"
+    }
+  },
+  "required": [
+    "name",
+    "type",
+    "rate"
+  ]
+}

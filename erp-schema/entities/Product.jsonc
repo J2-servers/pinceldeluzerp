@@ -1,0 +1,244 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do item cadastrado"
+    },
+    "sku": {
+      "type": "string",
+      "description": "C\u00f3digo interno do produto"
+    },
+    "barcode": {
+      "type": "string",
+      "description": "C\u00f3digo de barras"
+    },
+    "brand": {
+      "type": "string",
+      "description": "Marca"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Fornecedor principal"
+    },
+    "category": {
+      "type": "string",
+      "description": "Categoria principal do item"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Categoria estruturada vinculada"
+    },
+    "product_group": {
+      "type": "string",
+      "description": "Grupo comercial do item"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o comercial do item"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "un",
+        "m",
+        "m2",
+        "kg",
+        "cx",
+        "pc",
+        "rolo",
+        "folha"
+      ],
+      "default": "un",
+      "description": "Unidade de estoque/venda"
+    },
+    "pricing_mode": {
+      "type": "string",
+      "enum": [
+        "unitario",
+        "area_m2",
+        "comprimento",
+        "peso",
+        "hora",
+        "manual"
+      ],
+      "default": "unitario",
+      "description": "Forma principal de precifica\u00e7\u00e3o"
+    },
+    "dimensions_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se exige largura/altura"
+    },
+    "can_quote": {
+      "type": "boolean",
+      "default": true,
+      "description": "Pode ser usado em or\u00e7amentos"
+    },
+    "can_sell": {
+      "type": "boolean",
+      "default": true,
+      "description": "Pode ser usado em vendas"
+    },
+    "track_stock": {
+      "type": "boolean",
+      "default": true,
+      "description": "Controla estoque deste item"
+    },
+    "auto_deduct_on_sale": {
+      "type": "boolean",
+      "default": true,
+      "description": "Baixa estoque automaticamente"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Item ativo no cat\u00e1logo"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade dispon\u00edvel"
+    },
+    "min_quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade m\u00ednima"
+    },
+    "max_quantity": {
+      "type": "number",
+      "description": "Estoque m\u00e1ximo"
+    },
+    "lead_time_days": {
+      "type": "number",
+      "description": "Prazo m\u00e9dio de reposi\u00e7\u00e3o"
+    },
+    "sheet_width_mm": {
+      "type": "number",
+      "description": "Largura da folha/chapa em mm"
+    },
+    "sheet_height_mm": {
+      "type": "number",
+      "description": "Altura da folha/chapa em mm"
+    },
+    "thickness_mm": {
+      "type": "number",
+      "description": "Espessura do item em mm"
+    },
+    "cost_price": {
+      "type": "number",
+      "description": "Custo base por unidade ou pe\u00e7a"
+    },
+    "price_per_m2": {
+      "type": "number",
+      "description": "Pre\u00e7o por metro quadrado"
+    },
+    "sale_price": {
+      "type": "number",
+      "description": "Pre\u00e7o base de venda unit\u00e1rio"
+    },
+    "default_markup_pct": {
+      "type": "number",
+      "description": "Markup padr\u00e3o sugerido"
+    },
+    "default_labor_hours": {
+      "type": "number",
+      "default": 0,
+      "description": "Horas padr\u00e3o de m\u00e3o de obra"
+    },
+    "labor_cost_hour": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo por hora de m\u00e3o de obra"
+    },
+    "default_machine_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutos padr\u00e3o de m\u00e1quina"
+    },
+    "machine_cost_per_min": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo por minuto de m\u00e1quina"
+    },
+    "default_art_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo padr\u00e3o de cria\u00e7\u00e3o de arte"
+    },
+    "art_template_notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es padr\u00e3o de arte"
+    },
+    "color": {
+      "type": "string",
+      "description": "Cor ou acabamento"
+    },
+    "location": {
+      "type": "string",
+      "description": "Localiza\u00e7\u00e3o f\u00edsica no estoque"
+    },
+    "asset_type": {
+      "type": "string",
+      "enum": [
+        "nenhum",
+        "empresa",
+        "socio"
+      ],
+      "default": "nenhum",
+      "description": "Se o item tamb\u00e9m representa patrim\u00f4nio"
+    },
+    "asset_category": {
+      "type": "string",
+      "enum": [
+        "maquinas",
+        "veiculos",
+        "moveis",
+        "informatica",
+        "ferramentas",
+        "equipamentos",
+        "outros"
+      ],
+      "description": "Categoria patrimonial vinculada"
+    },
+    "asset_condition": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "bom",
+        "regular",
+        "ruim",
+        "inativo"
+      ],
+      "default": "bom",
+      "description": "Condi\u00e7\u00e3o patrimonial"
+    },
+    "responsible_partner": {
+      "type": "string",
+      "enum": [
+        "Maeli",
+        "Wesley",
+        "Juliano"
+      ],
+      "description": "S\u00f3cio respons\u00e1vel"
+    },
+    "auto_create_asset": {
+      "type": "boolean",
+      "default": false,
+      "description": "Criar/atualizar patrim\u00f4nio automaticamente"
+    },
+    "linked_asset_id": {
+      "type": "string",
+      "description": "ID do patrim\u00f4nio vinculado"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es internas"
+    }
+  },
+  "required": [
+    "name",
+    "category"
+  ]
+}

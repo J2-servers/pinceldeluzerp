@@ -1,0 +1,39 @@
+{
+  "name": "ClientPriceHistory",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Item"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Quantidade"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Pre\u00e7o unit\u00e1rio"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data"
+    }
+  },
+  "required": [
+    "client_name",
+    "item_name"
+  ]
+}

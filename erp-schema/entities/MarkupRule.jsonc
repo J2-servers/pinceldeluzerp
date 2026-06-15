@@ -1,0 +1,27 @@
+{
+  "name": "MarkupRule",
+  "type": "object",
+  "properties": {
+    "material_type": {
+      "type": "string",
+      "description": "Tipo de material"
+    },
+    "markup_percent": {
+      "type": "number",
+      "description": "Markup (%)"
+    },
+    "min_markup_percent": {
+      "type": "number",
+      "description": "Markup m\u00ednimo (%)"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativo"
+    }
+  },
+  "required": [
+    "material_type",
+    "markup_percent"
+  ]
+}

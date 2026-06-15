@@ -1,0 +1,279 @@
+{
+  "name": "ProductQuote",
+  "type": "object",
+  "properties": {
+    "quote_number": {
+      "type": "string",
+      "description": "N\u00famero do or\u00e7amento"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "client_phone": {
+      "type": "string",
+      "description": "Telefone"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "ID do produto principal"
+    },
+    "product_group": {
+      "type": "string",
+      "description": "Grupo do produto"
+    },
+    "pricing_mode": {
+      "type": "string",
+      "enum": [
+        "unitario",
+        "area_m2",
+        "comprimento",
+        "peso",
+        "hora",
+        "manual"
+      ],
+      "description": "Modo de precifica\u00e7\u00e3o usado no or\u00e7amento"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Nome resumido do or\u00e7amento"
+    },
+    "description": {
+      "type": "string",
+      "description": "Resumo dos itens"
+    },
+    "items_summary": {
+      "type": "string",
+      "description": "Resumo adicional dos itens"
+    },
+    "line_items_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de itens"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade total"
+    },
+    "width_mm": {
+      "type": "number",
+      "description": "Largura (mm)"
+    },
+    "height_mm": {
+      "type": "number",
+      "description": "Altura (mm)"
+    },
+    "depth_mm": {
+      "type": "number",
+      "description": "Espessura/Profundidade (mm)"
+    },
+    "material": {
+      "type": "string",
+      "enum": [
+        "mdf",
+        "acrilico",
+        "madeira",
+        "couro",
+        "tecido",
+        "papel",
+        "plastico",
+        "metal",
+        "vidro",
+        "borracha",
+        "eva",
+        "outro"
+      ],
+      "description": "Material principal"
+    },
+    "material_color": {
+      "type": "string",
+      "description": "Cor/acabamento do material"
+    },
+    "material_thickness_mm": {
+      "type": "number",
+      "description": "Espessura do material (mm)"
+    },
+    "material_cost": {
+      "type": "number",
+      "description": "Custo do material (R$)"
+    },
+    "secondary_material": {
+      "type": "string",
+      "description": "Material secund\u00e1rio"
+    },
+    "secondary_material_cost": {
+      "type": "number",
+      "description": "Custo material secund\u00e1rio (R$)"
+    },
+    "process": {
+      "type": "string",
+      "enum": [
+        "corte_laser",
+        "gravacao_laser",
+        "corte_cnc",
+        "impressao",
+        "pintura",
+        "montagem",
+        "bordado",
+        "sublimacao",
+        "combo"
+      ],
+      "description": "Processo principal"
+    },
+    "cut_time_min": {
+      "type": "number",
+      "description": "Tempo de corte (min)"
+    },
+    "machine_cost_per_min": {
+      "type": "number",
+      "description": "Custo m\u00e1quina/min (R$)"
+    },
+    "machine_cost_total": {
+      "type": "number",
+      "description": "Custo m\u00e1quina total (R$)"
+    },
+    "labor_hours": {
+      "type": "number",
+      "description": "Horas de m\u00e3o-de-obra"
+    },
+    "labor_cost_hour": {
+      "type": "number",
+      "description": "Custo MO/hora (R$)"
+    },
+    "labor_cost_total": {
+      "type": "number",
+      "description": "Custo MO total (R$)"
+    },
+    "general_art_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo de arte geral"
+    },
+    "additional_charge": {
+      "type": "number",
+      "default": 0,
+      "description": "Acr\u00e9scimo geral"
+    },
+    "subtotal_products": {
+      "type": "number",
+      "default": 0,
+      "description": "Subtotal de produtos"
+    },
+    "subtotal_services": {
+      "type": "number",
+      "default": 0,
+      "description": "Subtotal de servi\u00e7os"
+    },
+    "finishing": {
+      "type": "string",
+      "enum": [
+        "nenhum",
+        "verniz",
+        "pintura",
+        "envelhecimento",
+        "polimento",
+        "peliculagem",
+        "laminacao",
+        "customizado"
+      ],
+      "description": "Acabamento"
+    },
+    "finishing_cost": {
+      "type": "number",
+      "description": "Custo acabamento (R$)"
+    },
+    "packaging_cost": {
+      "type": "number",
+      "description": "Custo embalagem (R$)"
+    },
+    "freight_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo frete (R$)"
+    },
+    "operational_loss_pct": {
+      "type": "number",
+      "default": 10,
+      "description": "Perda operacional (%)"
+    },
+    "tax_pct": {
+      "type": "number",
+      "default": 6,
+      "description": "Imposto (%)"
+    },
+    "markup_pct": {
+      "type": "number",
+      "default": 80,
+      "description": "Markup (%)"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Custo total (R$)"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Pre\u00e7o unit\u00e1rio (R$)"
+    },
+    "total_price": {
+      "type": "number",
+      "description": "Pre\u00e7o total antes do desconto geral (R$)"
+    },
+    "discount_pct": {
+      "type": "number",
+      "default": 0,
+      "description": "Desconto geral (%)"
+    },
+    "final_price": {
+      "type": "number",
+      "description": "Pre\u00e7o final com desconto (R$)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "enviado",
+        "aprovado",
+        "reprovado",
+        "expirado"
+      ],
+      "default": "rascunho",
+      "description": "Status"
+    },
+    "valid_days": {
+      "type": "number",
+      "default": 7,
+      "description": "Validade (dias)"
+    },
+    "deadline_days": {
+      "type": "number",
+      "description": "Prazo de produ\u00e7\u00e3o (dias)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    },
+    "internal_notes": {
+      "type": "string",
+      "description": "Notas internas"
+    },
+    "payment_conditions": {
+      "type": "string",
+      "description": "Condi\u00e7\u00f5es de pagamento"
+    },
+    "created_by_partner": {
+      "type": "string",
+      "enum": [
+        "Maeli",
+        "Wesley",
+        "Juliano"
+      ],
+      "description": "Criado por"
+    }
+  },
+  "required": [
+    "client_name",
+    "product_name",
+    "quantity"
+  ]
+}

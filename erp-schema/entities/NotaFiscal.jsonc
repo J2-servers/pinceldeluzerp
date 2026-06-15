@@ -1,0 +1,86 @@
+{
+  "name": "NotaFiscal",
+  "type": "object",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "nfe",
+        "nfse"
+      ],
+      "description": "Tipo: NF-e (produto) ou NFS-e (servi\u00e7o)"
+    },
+    "referencia": {
+      "type": "string",
+      "description": "Refer\u00eancia \u00fanica (gerada automaticamente)"
+    },
+    "pedido_id": {
+      "type": "string",
+      "description": "ID do pedido vinculado"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "cliente_cpf_cnpj": {
+      "type": "string",
+      "description": "CPF/CNPJ do cliente"
+    },
+    "valor_total": {
+      "type": "number",
+      "description": "Valor total da nota"
+    },
+    "descricao_servico": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do servi\u00e7o/produto"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "emitida",
+        "cancelada",
+        "erro"
+      ],
+      "default": "pendente",
+      "description": "Status da nota"
+    },
+    "numero_nota": {
+      "type": "string",
+      "description": "N\u00famero da nota emitida"
+    },
+    "chave_acesso": {
+      "type": "string",
+      "description": "Chave de acesso NF-e"
+    },
+    "url_danfe": {
+      "type": "string",
+      "description": "URL do DANFE/PDF"
+    },
+    "url_xml": {
+      "type": "string",
+      "description": "URL do XML"
+    },
+    "protocolo": {
+      "type": "string",
+      "description": "Protocolo de autoriza\u00e7\u00e3o"
+    },
+    "motivo_erro": {
+      "type": "string",
+      "description": "Motivo do erro (se houver)"
+    },
+    "payload_enviado": {
+      "type": "string",
+      "description": "Payload enviado para a API (JSON)"
+    },
+    "resposta_api": {
+      "type": "string",
+      "description": "Resposta da API (JSON)"
+    }
+  },
+  "required": [
+    "tipo",
+    "cliente_nome",
+    "valor_total"
+  ]
+}

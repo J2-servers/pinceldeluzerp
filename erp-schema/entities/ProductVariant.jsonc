@@ -1,0 +1,73 @@
+{
+  "name": "ProductVariant",
+  "type": "object",
+  "properties": {
+    "product_master_id": {
+      "type": "string",
+      "description": "Produto mestre"
+    },
+    "sku": {
+      "type": "string",
+      "description": "SKU da variante"
+    },
+    "barcode": {
+      "type": "string",
+      "description": "C\u00f3digo de barras principal"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome da variante"
+    },
+    "variant_label": {
+      "type": "string",
+      "description": "R\u00f3tulo operacional"
+    },
+    "attribute_summary": {
+      "type": "string",
+      "description": "Resumo dos atributos"
+    },
+    "sale_price": {
+      "type": "number",
+      "description": "Pre\u00e7o de venda"
+    },
+    "cost_price": {
+      "type": "number",
+      "description": "Pre\u00e7o de custo"
+    },
+    "track_stock": {
+      "type": "boolean",
+      "default": true,
+      "description": "Controla estoque"
+    },
+    "sellable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Vend\u00e1vel"
+    },
+    "purchasable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Compr\u00e1vel"
+    },
+    "lot_controlled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Controlado por lote"
+    },
+    "serial_controlled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Controlado por s\u00e9rie"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "product_master_id",
+    "sku",
+    "name"
+  ]
+}

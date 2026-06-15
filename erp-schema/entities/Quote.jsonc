@@ -1,0 +1,85 @@
+{
+  "name": "Quote",
+  "type": "object",
+  "properties": {
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "client_phone": {
+      "type": "string",
+      "description": "Telefone do cliente"
+    },
+    "items": {
+      "type": "array",
+      "description": "Itens do or\u00e7amento",
+      "items": {
+        "type": "object",
+        "properties": {
+          "catalog_item_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number",
+      "description": "Subtotal"
+    },
+    "discount": {
+      "type": "number",
+      "default": 0,
+      "description": "Desconto em valor"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total"
+    },
+    "validity_days": {
+      "type": "number",
+      "default": 7,
+      "description": "Validade em dias"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "enviado",
+        "aprovado",
+        "recusado",
+        "expirado"
+      ],
+      "default": "rascunho",
+      "description": "Status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "client_name"
+  ]
+}

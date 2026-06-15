@@ -1,0 +1,40 @@
+{
+  "name": "StockLocation",
+  "type": "object",
+  "properties": {
+    "warehouse_id": {
+      "type": "string",
+      "description": "Dep\u00f3sito"
+    },
+    "warehouse_name": {
+      "type": "string",
+      "description": "Nome do dep\u00f3sito"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome da localiza\u00e7\u00e3o"
+    },
+    "code": {
+      "type": "string",
+      "description": "C\u00f3digo da localiza\u00e7\u00e3o"
+    },
+    "parent_location_id": {
+      "type": "string",
+      "description": "Localiza\u00e7\u00e3o pai"
+    },
+    "picking_sequence": {
+      "type": "number",
+      "description": "Ordem de coleta"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "warehouse_id",
+    "name",
+    "code"
+  ]
+}

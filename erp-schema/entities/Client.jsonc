@@ -1,0 +1,67 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Telefone"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "WhatsApp"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email"
+    },
+    "address": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "dinheiro",
+        "cartao_credito",
+        "cartao_debito",
+        "parcelado",
+        "boleto",
+        "crediario",
+        "transferencia"
+      ],
+      "description": "Forma de pagamento preferida"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "em_dia",
+        "atrasado",
+        "inadimplente"
+      ],
+      "default": "em_dia",
+      "description": "Status do cliente"
+    },
+    "total_purchases": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de compras"
+    },
+    "total_debt": {
+      "type": "number",
+      "default": 0,
+      "description": "D\u00edvida total"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

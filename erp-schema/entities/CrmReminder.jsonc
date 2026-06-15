@@ -1,0 +1,48 @@
+{
+  "name": "CrmReminder",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "recompra",
+        "follow_up",
+        "aniversario",
+        "promocao",
+        "outro"
+      ],
+      "description": "Tipo"
+    },
+    "reminder_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do lembrete"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Conclu\u00eddo"
+    }
+  },
+  "required": [
+    "client_name",
+    "title",
+    "reminder_date"
+  ]
+}

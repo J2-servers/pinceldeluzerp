@@ -1,0 +1,86 @@
+{
+  "name": "StockMovementItem",
+  "type": "object",
+  "properties": {
+    "movement_number": {
+      "type": "string",
+      "description": "N\u00famero do movimento"
+    },
+    "movement_type": {
+      "type": "string",
+      "enum": [
+        "entrada",
+        "saida",
+        "transferencia",
+        "reserva",
+        "ajuste",
+        "cancelamento",
+        "devolucao",
+        "perda"
+      ],
+      "description": "Tipo do movimento"
+    },
+    "product_variant_id": {
+      "type": "string",
+      "description": "Variante"
+    },
+    "warehouse_from_id": {
+      "type": "string",
+      "description": "Dep\u00f3sito origem"
+    },
+    "location_from_id": {
+      "type": "string",
+      "description": "Local origem"
+    },
+    "warehouse_to_id": {
+      "type": "string",
+      "description": "Dep\u00f3sito destino"
+    },
+    "location_to_id": {
+      "type": "string",
+      "description": "Local destino"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Quantidade"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Custo unit\u00e1rio"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Motivo"
+    },
+    "reference_type": {
+      "type": "string",
+      "description": "Tipo da refer\u00eancia"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "Documento relacionado"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "posted",
+        "cancelled"
+      ],
+      "default": "posted",
+      "description": "Status"
+    },
+    "movement_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data do movimento"
+    }
+  },
+  "required": [
+    "movement_number",
+    "movement_type",
+    "product_variant_id",
+    "quantity",
+    "movement_date"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "FreightConfig",
+  "type": "object",
+  "properties": {
+    "zone_name": {
+      "type": "string",
+      "description": "Nome da zona"
+    },
+    "base_cost": {
+      "type": "number",
+      "description": "Custo base"
+    },
+    "cost_per_kg": {
+      "type": "number",
+      "description": "Custo por kg"
+    },
+    "cost_per_m3": {
+      "type": "number",
+      "description": "Custo por m\u00b3"
+    },
+    "min_value": {
+      "type": "number",
+      "description": "Valor m\u00ednimo"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "zone_name",
+    "base_cost"
+  ]
+}

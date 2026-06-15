@@ -1,0 +1,53 @@
+{
+  "name": "QuoteCatalogItem",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do item"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "material",
+        "mao_de_obra",
+        "hora_maquina",
+        "servico",
+        "ferramenta",
+        "insumo"
+      ],
+      "description": "Categoria"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "un",
+        "m",
+        "m2",
+        "kg",
+        "hora",
+        "minuto"
+      ],
+      "default": "un",
+      "description": "Unidade"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Custo unit\u00e1rio"
+    },
+    "machine": {
+      "type": "string",
+      "description": "M\u00e1quina vinculada"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativo"
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "unit_cost"
+  ]
+}

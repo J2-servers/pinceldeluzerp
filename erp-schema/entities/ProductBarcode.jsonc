@@ -1,0 +1,27 @@
+{
+  "name": "ProductBarcode",
+  "type": "object",
+  "properties": {
+    "product_variant_id": {
+      "type": "string",
+      "description": "Variante vinculada"
+    },
+    "barcode": {
+      "type": "string",
+      "description": "C\u00f3digo de barras"
+    },
+    "barcode_type": {
+      "type": "string",
+      "description": "Tipo de c\u00f3digo"
+    },
+    "is_primary": {
+      "type": "boolean",
+      "default": false,
+      "description": "Principal"
+    }
+  },
+  "required": [
+    "product_variant_id",
+    "barcode"
+  ]
+}

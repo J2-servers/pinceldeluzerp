@@ -1,0 +1,51 @@
+{
+  "name": "PurchaseOrder",
+  "type": "object",
+  "properties": {
+    "supplier_id": {
+      "type": "string",
+      "description": "ID do fornecedor"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Nome do fornecedor"
+    },
+    "items": {
+      "type": "string",
+      "description": "Itens da compra"
+    },
+    "total": {
+      "type": "number",
+      "description": "Valor total"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "enviado",
+        "recebido",
+        "cancelado"
+      ],
+      "default": "pendente",
+      "description": "Status"
+    },
+    "order_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do pedido"
+    },
+    "delivery_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de entrega"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "supplier_name",
+    "total"
+  ]
+}

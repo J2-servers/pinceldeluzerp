@@ -1,0 +1,48 @@
+{
+  "name": "StockBalanceSnapshot",
+  "type": "object",
+  "properties": {
+    "product_variant_id": {
+      "type": "string",
+      "description": "Variante"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Dep\u00f3sito"
+    },
+    "location_id": {
+      "type": "string",
+      "description": "Localiza\u00e7\u00e3o"
+    },
+    "on_hand": {
+      "type": "number",
+      "default": 0,
+      "description": "Saldo f\u00edsico"
+    },
+    "reserved": {
+      "type": "number",
+      "default": 0,
+      "description": "Reservado"
+    },
+    "available": {
+      "type": "number",
+      "default": 0,
+      "description": "Dispon\u00edvel"
+    },
+    "average_cost": {
+      "type": "number",
+      "description": "Custo m\u00e9dio"
+    },
+    "snapshot_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data do snapshot"
+    }
+  },
+  "required": [
+    "product_variant_id",
+    "warehouse_id",
+    "on_hand",
+    "available"
+  ]
+}

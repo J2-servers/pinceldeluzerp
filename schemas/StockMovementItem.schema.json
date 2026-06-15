@@ -1,0 +1,32 @@
+{
+  "name": "StockMovementItem",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "ID do registro"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de criação"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de atualização"
+    },
+    "created_by_id": {
+      "type": "string",
+      "description": "ID do usuário criador"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email do usuário criador"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Usuário que atualizou"
+    }
+  }
+}

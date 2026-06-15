@@ -1,0 +1,30 @@
+{
+  "name": "VolumePricing",
+  "type": "object",
+  "properties": {
+    "product_name": {
+      "type": "string",
+      "description": "Produto"
+    },
+    "min_quantity": {
+      "type": "number",
+      "description": "Quantidade m\u00ednima"
+    },
+    "max_quantity": {
+      "type": "number",
+      "description": "Quantidade m\u00e1xima"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Pre\u00e7o unit\u00e1rio"
+    },
+    "discount_percent": {
+      "type": "number",
+      "description": "Desconto (%)"
+    }
+  },
+  "required": [
+    "product_name",
+    "min_quantity"
+  ]
+}

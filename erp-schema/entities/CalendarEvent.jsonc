@@ -1,0 +1,45 @@
+{
+  "name": "CalendarEvent",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "tarefa",
+        "entrega",
+        "reuniao",
+        "cobranca",
+        "manutencao",
+        "outro"
+      ],
+      "default": "tarefa",
+      "description": "Tipo"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data"
+    },
+    "time": {
+      "type": "string",
+      "description": "Hora (HH:mm)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Conclu\u00eddo"
+    }
+  },
+  "required": [
+    "title",
+    "date"
+  ]
+}

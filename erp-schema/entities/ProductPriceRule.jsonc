@@ -1,0 +1,54 @@
+{
+  "name": "ProductPriceRule",
+  "type": "object",
+  "properties": {
+    "price_list_id": {
+      "type": "string",
+      "description": "Tabela de pre\u00e7o"
+    },
+    "product_master_id": {
+      "type": "string",
+      "description": "Produto mestre"
+    },
+    "product_variant_id": {
+      "type": "string",
+      "description": "Variante"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Cliente"
+    },
+    "minimum_quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade m\u00ednima"
+    },
+    "price": {
+      "type": "number",
+      "description": "Pre\u00e7o aplicado"
+    },
+    "discount_pct": {
+      "type": "number",
+      "description": "Desconto percentual"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "In\u00edcio da vig\u00eancia"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fim da vig\u00eancia"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "price_list_id",
+    "price"
+  ]
+}

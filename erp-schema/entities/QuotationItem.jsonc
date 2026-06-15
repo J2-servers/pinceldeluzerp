@@ -1,0 +1,140 @@
+{
+  "name": "QuotationItem",
+  "type": "object",
+  "properties": {
+    "quotation_id": {
+      "type": "string",
+      "description": "Or\u00e7amento"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Produto"
+    },
+    "product_variant_id": {
+      "type": "string",
+      "description": "Variante"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Nome do produto"
+    },
+    "pricing_mode": {
+      "type": "string",
+      "description": "Modo de pre\u00e7o"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do item"
+    },
+    "item_notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00e3o do item"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unidade"
+    },
+    "width_mm": {
+      "type": "number",
+      "description": "Largura da pe\u00e7a"
+    },
+    "height_mm": {
+      "type": "number",
+      "description": "Altura da pe\u00e7a"
+    },
+    "base_price": {
+      "type": "number",
+      "description": "Pre\u00e7o base do item"
+    },
+    "unit_price": {
+      "type": "number",
+      "description": "Pre\u00e7o unit\u00e1rio final"
+    },
+    "base_subtotal": {
+      "type": "number",
+      "description": "Subtotal base"
+    },
+    "services_total": {
+      "type": "number",
+      "description": "Total de servi\u00e7os"
+    },
+    "material_cost": {
+      "type": "number",
+      "description": "Custo de material"
+    },
+    "labor_hours": {
+      "type": "number",
+      "default": 0,
+      "description": "Horas de m\u00e3o de obra"
+    },
+    "labor_cost_hour": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo MO/hora"
+    },
+    "labor_cost_total": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo total de m\u00e3o de obra"
+    },
+    "machine_time_min": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutos de m\u00e1quina"
+    },
+    "machine_cost_per_min": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo por minuto de m\u00e1quina"
+    },
+    "machine_cost_total": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo total de m\u00e1quina"
+    },
+    "art_type": {
+      "type": "string",
+      "description": "Tipo da arte"
+    },
+    "art_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo de cria\u00e7\u00e3o de arte"
+    },
+    "art_description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da arte aplicada"
+    },
+    "discount_pct": {
+      "type": "number",
+      "default": 0,
+      "description": "Desconto percentual"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Custo total do item"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total do item"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Dep\u00f3sito preferencial"
+    },
+    "projected_available": {
+      "type": "number",
+      "description": "Estoque projetado"
+    }
+  },
+  "required": [
+    "quotation_id",
+    "description",
+    "quantity"
+  ]
+}

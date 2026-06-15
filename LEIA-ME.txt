@@ -1,0 +1,7 @@
+Backup completo do banco de dados.
+
+Estrutura:
+- schemas/: estrutura de cada tabela em JSON Schema
+- dados-json/: registros completos de cada tabela preservando tipos
+- dados-csv/: registros de cada tabela em CSV para planilhas/importação
+- manifesto-backup.json: índice do backup com quantidade de registros por tabela

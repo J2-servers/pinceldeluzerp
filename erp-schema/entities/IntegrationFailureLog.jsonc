@@ -1,0 +1,47 @@
+{
+  "name": "IntegrationFailureLog",
+  "type": "object",
+  "properties": {
+    "integration_name": {
+      "type": "string",
+      "description": "Integra\u00e7\u00e3o"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Tipo do evento"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "Refer\u00eancia"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "retrying",
+        "resolved"
+      ],
+      "default": "open",
+      "description": "Status"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Erro"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Tentativas"
+    },
+    "last_attempt_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u00daltima tentativa"
+    }
+  },
+  "required": [
+    "integration_name",
+    "event_type",
+    "error_message"
+  ]
+}

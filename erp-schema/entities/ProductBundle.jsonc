@@ -1,0 +1,29 @@
+{
+  "name": "ProductBundle",
+  "type": "object",
+  "properties": {
+    "bundle_variant_id": {
+      "type": "string",
+      "description": "Variante principal do kit"
+    },
+    "component_variant_id": {
+      "type": "string",
+      "description": "Componente do kit"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade do componente"
+    },
+    "optional": {
+      "type": "boolean",
+      "default": false,
+      "description": "Componente opcional"
+    }
+  },
+  "required": [
+    "bundle_variant_id",
+    "component_variant_id",
+    "quantity"
+  ]
+}

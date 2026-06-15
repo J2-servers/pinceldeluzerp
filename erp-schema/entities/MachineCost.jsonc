@@ -1,0 +1,33 @@
+{
+  "name": "MachineCost",
+  "type": "object",
+  "properties": {
+    "machine_name": {
+      "type": "string",
+      "description": "Nome da m\u00e1quina"
+    },
+    "energy_cost_hour": {
+      "type": "number",
+      "description": "Custo energia (R$/hora)"
+    },
+    "gas_cost_hour": {
+      "type": "number",
+      "description": "Custo g\u00e1s (R$/hora)"
+    },
+    "compressor_cost_hour": {
+      "type": "number",
+      "description": "Custo compressor (R$/hora)"
+    },
+    "maintenance_cost_hour": {
+      "type": "number",
+      "description": "Custo manuten\u00e7\u00e3o (R$/hora)"
+    },
+    "total_cost_minute": {
+      "type": "number",
+      "description": "Custo total por minuto"
+    }
+  },
+  "required": [
+    "machine_name"
+  ]
+}

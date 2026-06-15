@@ -1,0 +1,44 @@
+{
+  "name": "TimeEntry",
+  "type": "object",
+  "properties": {
+    "employee_name": {
+      "type": "string",
+      "description": "Funcion\u00e1rio"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data"
+    },
+    "hours": {
+      "type": "number",
+      "description": "Horas trabalhadas"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "description": "Custo por hora"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Custo total"
+    },
+    "task_description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da tarefa"
+    },
+    "service_order_id": {
+      "type": "string",
+      "description": "ID da OS vinculada"
+    },
+    "production_queue_id": {
+      "type": "string",
+      "description": "ID da fila de produ\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "employee_name",
+    "date",
+    "hours"
+  ]
+}

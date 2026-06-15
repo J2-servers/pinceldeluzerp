@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.claude
+logs
+backups
+storage
+*.log
+*.tmp
+database/*.sqlite
+database/*.sqlite-*
+database/*.db
+manifesto-backup.json

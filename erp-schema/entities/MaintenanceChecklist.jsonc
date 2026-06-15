@@ -1,0 +1,37 @@
+{
+  "name": "MaintenanceChecklist",
+  "type": "object",
+  "properties": {
+    "task": {
+      "type": "string",
+      "description": "Tarefa"
+    },
+    "machine": {
+      "type": "string",
+      "description": "M\u00e1quina"
+    },
+    "interval_hours": {
+      "type": "number",
+      "description": "Intervalo em horas"
+    },
+    "last_executed": {
+      "type": "string",
+      "format": "date",
+      "description": "\u00daltima execu\u00e7\u00e3o"
+    },
+    "next_due": {
+      "type": "string",
+      "format": "date",
+      "description": "Pr\u00f3xima execu\u00e7\u00e3o"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Conclu\u00edda"
+    }
+  },
+  "required": [
+    "task",
+    "interval_hours"
+  ]
+}

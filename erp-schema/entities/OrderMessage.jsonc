@@ -1,0 +1,36 @@
+{
+  "name": "OrderMessage",
+  "type": "object",
+  "properties": {
+    "author": {
+      "type": "string",
+      "description": "Autor"
+    },
+    "message": {
+      "type": "string",
+      "description": "Mensagem"
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "producao",
+        "vendas",
+        "financeiro",
+        "administracao"
+      ],
+      "description": "Departamento"
+    },
+    "service_order_id": {
+      "type": "string",
+      "description": "ID da OS"
+    },
+    "sales_order_id": {
+      "type": "string",
+      "description": "ID do pedido de venda"
+    }
+  },
+  "required": [
+    "author",
+    "message"
+  ]
+}

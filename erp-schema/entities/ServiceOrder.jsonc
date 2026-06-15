@@ -1,0 +1,72 @@
+{
+  "name": "ServiceOrder",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo da OS"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "sales_order_id": {
+      "type": "string",
+      "description": "ID do pedido de venda vinculado"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do servi\u00e7o"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "normal",
+        "alta",
+        "urgente"
+      ],
+      "default": "normal",
+      "description": "Prioridade"
+    },
+    "estimated_hours": {
+      "type": "number",
+      "description": "Horas estimadas"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date",
+      "description": "Prazo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aguardando",
+        "em_andamento",
+        "pausada",
+        "concluida",
+        "cancelada"
+      ],
+      "default": "aguardando",
+      "description": "Status"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data/hora de in\u00edcio"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data/hora de conclus\u00e3o"
+    }
+  },
+  "required": [
+    "title",
+    "client_name"
+  ]
+}

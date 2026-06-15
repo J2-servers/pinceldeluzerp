@@ -1,0 +1,41 @@
+{
+  "name": "SellerCommission",
+  "type": "object",
+  "properties": {
+    "seller_name": {
+      "type": "string",
+      "description": "Nome do vendedor"
+    },
+    "order_id": {
+      "type": "string",
+      "description": "ID do pedido"
+    },
+    "order_total": {
+      "type": "number",
+      "description": "Total do pedido"
+    },
+    "commission_percent": {
+      "type": "number",
+      "description": "Percentual de comiss\u00e3o"
+    },
+    "commission_value": {
+      "type": "number",
+      "description": "Valor da comiss\u00e3o"
+    },
+    "paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "Pago"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do pagamento"
+    }
+  },
+  "required": [
+    "seller_name",
+    "order_total",
+    "commission_percent"
+  ]
+}

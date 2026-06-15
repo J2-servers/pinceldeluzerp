@@ -1,0 +1,45 @@
+{
+  "name": "ScrapInventory",
+  "type": "object",
+  "properties": {
+    "material": {
+      "type": "string",
+      "description": "Material"
+    },
+    "width": {
+      "type": "number",
+      "description": "Largura (mm)"
+    },
+    "height": {
+      "type": "number",
+      "description": "Altura (mm)"
+    },
+    "thickness": {
+      "type": "number",
+      "description": "Espessura (mm)"
+    },
+    "area": {
+      "type": "number",
+      "description": "\u00c1rea (m\u00b2)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "disponivel",
+        "reservado",
+        "utilizado"
+      ],
+      "default": "disponivel",
+      "description": "Status"
+    },
+    "location": {
+      "type": "string",
+      "description": "Localiza\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "material",
+    "width",
+    "height"
+  ]
+}

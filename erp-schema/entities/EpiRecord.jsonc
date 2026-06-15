@@ -1,0 +1,48 @@
+{
+  "name": "EpiRecord",
+  "type": "object",
+  "properties": {
+    "employee_name": {
+      "type": "string",
+      "description": "Funcion\u00e1rio"
+    },
+    "epi_type": {
+      "type": "string",
+      "enum": [
+        "oculos",
+        "luvas",
+        "mascara",
+        "protetor_auricular",
+        "avental",
+        "sapato",
+        "capacete",
+        "outros"
+      ],
+      "description": "Tipo de EPI"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade"
+    },
+    "delivery_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de entrega"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de validade"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "employee_name",
+    "epi_type",
+    "delivery_date"
+  ]
+}

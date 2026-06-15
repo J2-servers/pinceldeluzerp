@@ -1,0 +1,51 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "legacy_client_id": {
+      "type": "string",
+      "description": "ID legado do cliente"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Telefone"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "WhatsApp"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email"
+    },
+    "document_number": {
+      "type": "string",
+      "description": "CPF/CNPJ"
+    },
+    "address": {
+      "type": "string",
+      "description": "Endere\u00e7o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "blocked",
+        "inactive"
+      ],
+      "default": "active",
+      "description": "Status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "ProductAttribute",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do atributo"
+    },
+    "code": {
+      "type": "string",
+      "description": "C\u00f3digo interno"
+    },
+    "input_type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "select",
+        "number",
+        "color",
+        "boolean"
+      ],
+      "default": "select",
+      "description": "Tipo de entrada"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativo"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

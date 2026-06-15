@@ -1,0 +1,90 @@
+{
+  "name": "ERPRequirement",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Codigo unico do requisito"
+    },
+    "area": {
+      "type": "string",
+      "description": "Area funcional do ERP"
+    },
+    "title": {
+      "type": "string",
+      "description": "Titulo da iniciativa"
+    },
+    "current_state": {
+      "type": "string",
+      "description": "Situacao atual observada"
+    },
+    "target_state": {
+      "type": "string",
+      "description": "Estado desejado"
+    },
+    "gap": {
+      "type": "string",
+      "description": "Lacuna funcional ou tecnica"
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Acao recomendada"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "critica",
+        "alta",
+        "media",
+        "baixa"
+      ],
+      "default": "media",
+      "description": "Prioridade"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planejado",
+        "em_execucao",
+        "validacao",
+        "concluido",
+        "bloqueado"
+      ],
+      "default": "planejado",
+      "description": "Status de execucao"
+    },
+    "maturity": {
+      "type": "number",
+      "default": 0,
+      "description": "Maturidade de 0 a 100"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Responsavel"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Prazo alvo"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Evidencias, links ou observacoes"
+    },
+    "module_path": {
+      "type": "string",
+      "description": "Pagina ou modulo relacionado"
+    },
+    "source_reference": {
+      "type": "string",
+      "description": "Referencia tecnica ou de mercado"
+    }
+  },
+  "required": [
+    "code",
+    "area",
+    "title",
+    "priority",
+    "status"
+  ]
+}

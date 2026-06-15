@@ -1,0 +1,38 @@
+{
+  "name": "CollectionRule",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da regra"
+    },
+    "days_overdue": {
+      "type": "number",
+      "description": "Dias de atraso"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "email",
+        "whatsapp",
+        "ligacao",
+        "bloqueio"
+      ],
+      "description": "A\u00e7\u00e3o"
+    },
+    "template": {
+      "type": "string",
+      "description": "Template da mensagem"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativa"
+    }
+  },
+  "required": [
+    "name",
+    "days_overdue",
+    "action"
+  ]
+}
