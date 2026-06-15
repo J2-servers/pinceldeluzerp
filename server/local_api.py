@@ -10,6 +10,7 @@ import shutil
 import sqlite3
 import sys
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -1190,7 +1191,12 @@ def main() -> None:
         print(f"Banco nao encontrado em {DB_PATH}. Execute: npm run db:sqlite", file=sys.stderr)
     print(f"Pincel Luz API local em http://{HOST}:{PORT}")
     print(f"SQLite: {DB_PATH}")
-    ThreadingHTTPServer((HOST, PORT), LocalHandler).serve_forever()
+    try:
+        ThreadingHTTPServer((HOST, PORT), LocalHandler).serve_forever()
+    except Exception:
+        print("Falha fatal na API Python:", file=sys.stderr)
+        traceback.print_exc()
+        raise
 
 
 if __name__ == "__main__":
