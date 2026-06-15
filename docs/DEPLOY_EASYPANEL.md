@@ -61,6 +61,8 @@ No EasyPanel, vincule:
 erp.seudominio.com -> porta interna 8080
 ```
 
+Na exportacao JSON do EasyPanel, o dominio precisa ficar com `"port": 8080`. Se aparecer `"port": 80`, o proxy vai tentar acessar a porta errada e o container pode ser encerrado mesmo com API e Nginx iniciando corretamente.
+
 Ative HTTPS no proprio EasyPanel.
 
 Se o container reiniciar com log `Sinal de encerramento recebido`, revise a porta interna do servico. Ela deve ser `8080`.
