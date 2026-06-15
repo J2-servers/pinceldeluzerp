@@ -73,6 +73,29 @@ Depois atualize a variavel:
 PINCEL_LUZ_ALLOWED_ORIGINS=https://erp.seudominio.com
 ```
 
+## 5.1. Corrigir JSON exportado automaticamente
+
+Se voce exportar a configuracao do EasyPanel para um arquivo JSON, rode:
+
+```bash
+npm run easypanel:fix -- easypanel.json --domain pincel-luz-erp-pincel-luz-erp.rea8zf.easypanel.host --out easypanel.fixed.json
+```
+
+O script ajusta automaticamente:
+
+- `domains[].port` para `8080`;
+- `PINCEL_LUZ_ALLOWED_ORIGINS` para o dominio correto, sem barra final;
+- `PINCEL_LUZ_DB` para `/app/database/pincel-luz-erp.sqlite`;
+- build Dockerfile, branch `main` e `source.path` `/`;
+- remove tokens opcionais do primeiro deploy para evitar desencontro entre frontend e backend.
+
+Depois importe/copiar a configuracao corrigida e confira os volumes no painel:
+
+```text
+/app/database
+/app/storage
+```
+
 ## 6. Primeiro acesso
 
 Depois do deploy:

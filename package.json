@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "db:local:json": "node scripts/create-local-json-db.mjs",
     "db:sqlite": "python scripts/create-sqlite-db.py",
+    "easypanel:fix": "node scripts/fix-easypanel-config.mjs",
     "local-api": "python server/local_api.py",
     "dev:full": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1"
   },
