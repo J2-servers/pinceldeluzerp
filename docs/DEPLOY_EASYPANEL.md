@@ -20,9 +20,9 @@ No EasyPanel:
 6. Build: usar `Dockerfile` da raiz.
 7. Internal Port: `8080`.
 
-O container roda frontend, Nginx e API SQLite no mesmo servico.
+O container roda frontend, Nginx e API SQLite no mesmo servico. O Nginx escuta nas portas internas `80` e `8080` para tolerar diferentes padroes do EasyPanel.
 
-Importante: nao use `8787` como porta do servico no EasyPanel. A porta `8787` e somente da API Python interna, acessada pelo Nginx dentro do container. O EasyPanel deve apontar para `8080`.
+Importante: nao use `8787` como porta do servico no EasyPanel. A porta `8787` e somente da API Python interna, acessada pelo Nginx dentro do container. O EasyPanel pode apontar para `8080` ou `80`; recomendamos `8080`, mas o container aceita as duas.
 
 ## 3. Variaveis de ambiente
 
@@ -61,11 +61,11 @@ No EasyPanel, vincule:
 erp.seudominio.com -> porta interna 8080
 ```
 
-Na exportacao JSON do EasyPanel, o dominio precisa ficar com `"port": 8080`. Se aparecer `"port": 80`, o proxy vai tentar acessar a porta errada e o container pode ser encerrado mesmo com API e Nginx iniciando corretamente.
+Na exportacao JSON do EasyPanel, recomendamos `"port": 8080`. O container tambem escuta `"port": 80` como fallback.
 
 Ative HTTPS no proprio EasyPanel.
 
-Se o container reiniciar com log `Sinal de encerramento recebido`, revise a porta interna do servico. Ela deve ser `8080`.
+Se o container reiniciar com log `Sinal de encerramento recebido`, revise a porta interna do servico. Use `8080`; se o EasyPanel insistir no padrao, `80` tambem funciona a partir desta versao.
 
 Depois atualize a variavel:
 

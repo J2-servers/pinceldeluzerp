@@ -14,7 +14,7 @@ echo "API Python iniciada com PID $API_PID em 127.0.0.1:8787"
 
 nginx -g "daemon off;" &
 NGINX_PID="$!"
-echo "Nginx iniciado com PID $NGINX_PID na porta interna 8080"
+echo "Nginx iniciado com PID $NGINX_PID nas portas internas 80 e 8080"
 
 shutdown() {
   trap - TERM INT EXIT

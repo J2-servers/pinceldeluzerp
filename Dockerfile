@@ -34,5 +34,5 @@ RUN chmod +x /app/docker/start.sh \
   && mkdir -p /app/database /app/storage/uploads /app/storage/backups /run/nginx
 
 VOLUME ["/app/database", "/app/storage"]
-EXPOSE 8080
+EXPOSE 80 8080
 CMD ["/app/docker/start.sh"]

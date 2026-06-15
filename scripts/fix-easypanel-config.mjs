@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 
 function usage() {
   console.log(`Uso:
-  node scripts/fix-easypanel-config.mjs <arquivo-json> --domain <dominio> [--out <saida-json>]
+  node scripts/fix-easypanel-config.mjs <arquivo-json> --domain <dominio> [--port 8080] [--out <saida-json>]
 
 Exemplo:
   node scripts/fix-easypanel-config.mjs easypanel.json --domain pincel-luz-erp-pincel-luz-erp.rea8zf.easypanel.host --out easypanel.fixed.json
@@ -33,6 +33,7 @@ function argValue(name) {
 const inputPath = args.find((arg) => !arg.startsWith('--'));
 const domainArg = argValue('--domain');
 const outPath = argValue('--out');
+const portArg = Number(argValue('--port') || 8080);
 
 if (!inputPath || !domainArg || args.includes('--help') || args.includes('-h')) {
   usage();
@@ -53,6 +54,10 @@ const normalizeHost = (value) => String(value || '')
 const host = normalizeHost(domainArg);
 if (!host) {
   console.error('Informe um dominio valido em --domain.');
+  process.exit(1);
+}
+if (![80, 8080].includes(portArg)) {
+  console.error('Use --port 8080 ou --port 80. A API interna 8787 nao deve ser exposta no EasyPanel.');
   process.exit(1);
 }
 
@@ -114,7 +119,7 @@ function fixService(service) {
     ...domain,
     host: normalizeHost(domain.host) || host,
     https: domain.https !== false,
-    port: 8080,
+    port: portArg,
     path: domain.path || '/',
     middlewares: Array.isArray(domain.middlewares) ? domain.middlewares : [],
     certificateResolver: domain.certificateResolver || '',
@@ -151,7 +156,7 @@ fs.writeFileSync(destination, JSON.stringify(config, null, 2) + '\n', 'utf8');
 
 console.log(`Configuracao corrigida salva em: ${destination}`);
 console.log(`Dominio configurado: https://${host}`);
-console.log('Porta interna dos dominios: 8080');
+console.log(`Porta interna dos dominios: ${portArg}`);
 if (allNotes.length) {
   console.log('\nPendencias para conferir no EasyPanel:');
   [...new Set(allNotes)].forEach((note) => console.log(`- ${note}`));
