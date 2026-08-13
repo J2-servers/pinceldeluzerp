@@ -574,6 +574,12 @@ export function summarizePricingDocument(lines, config = {}) {
   const additionalsSum = documentAdditionals.reduce((sum, extra) => sum + parseDecimal(extra?.value), 0);
   const subtotalProducts = lines.reduce((sum, line) => sum + parseDecimal(line.base_subtotal), 0);
   const subtotalServices = lines.reduce((sum, line) => sum + parseDecimal(line.services_total), 0);
+  // Quebra granular dos servicos para o resumo ao vivo do documento.
+  const subtotalMachine = lines.reduce((sum, line) => sum + parseDecimal(line.machine_sale_total), 0);
+  const subtotalLabor = lines.reduce((sum, line) => sum + parseDecimal(line.labor_sale_total), 0);
+  const subtotalSetup = lines.reduce((sum, line) => sum + parseDecimal(line.setup_sale_total), 0);
+  const subtotalArt = lines.reduce((sum, line) => sum + parseDecimal(line.art_price), 0);
+  const subtotalLineAdditionals = lines.reduce((sum, line) => sum + parseDecimal(line.additionals_total), 0);
   const subtotalBeforeDiscount = lines.reduce((sum, line) => sum + parseDecimal(line.total), 0) + generalArtCost + additionalCharge + additionalsSum;
   const totalCost = lines.reduce((sum, line) => sum + parseDecimal(line.total_cost), 0);
   // Desconto do documento: percentual + valor fixo em R$, sem deixar negativo.
@@ -588,6 +594,11 @@ export function summarizePricingDocument(lines, config = {}) {
   return {
     subtotalProducts: roundCurrency(subtotalProducts),
     subtotalServices: roundCurrency(subtotalServices),
+    subtotalMachine: roundCurrency(subtotalMachine),
+    subtotalLabor: roundCurrency(subtotalLabor),
+    subtotalSetup: roundCurrency(subtotalSetup),
+    subtotalArt: roundCurrency(subtotalArt),
+    subtotalLineAdditionals: roundCurrency(subtotalLineAdditionals),
     subtotalBeforeDiscount: roundCurrency(subtotalBeforeDiscount),
     generalArtCost: roundCurrency(generalArtCost),
     additionalCharge: roundCurrency(additionalCharge),

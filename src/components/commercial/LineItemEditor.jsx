@@ -71,6 +71,18 @@ export default function LineItemEditor({
     : line.price_source === 'volume_pricing' ? 'Preco por volume'
       : line.price_source === 'locked' ? 'Preco travado' : null;
 
+  // Composicao granular do preco (o motor ja calcula cada parte; aqui so expomos).
+  const breakdownRows = [
+    ['Material', line.base_subtotal, line.material_cost],
+    ['Maquina', line.machine_sale_total, line.machine_cost_total],
+    ['Mao de obra', line.labor_sale_total, line.labor_cost_total],
+    ['Setup', line.setup_sale_total, null],
+    ['Arte / design', line.art_price, null],
+    ['Servicos adicionais', line.additionals_total, null],
+  ].filter((row) => Number(row[1] || 0) > 0);
+  const discountApplied = Number(line.discount_applied || 0);
+  const overheadCost = Number(line.overhead_cost_total || 0);
+
   return (
     <div className="rounded-[30px] border border-blue-200 bg-white p-4 shadow-sm md:p-5">
       <ConfigRow title="Quantidade" help="Quantidade deste item no documento.">
@@ -126,12 +138,39 @@ export default function LineItemEditor({
       </ConfigRow>
 
       <div className="mt-4 rounded-[24px] bg-slate-950 p-5 text-white">
-        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Subtotal calculado</p>
-        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <p className="text-3xl font-black">{money(line.total)}</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Composicao do preco</p>
+        <div className="mt-3 space-y-1.5">
+          {breakdownRows.map(([label, value, cost]) => (
+            <div key={label} className="flex items-center justify-between text-sm">
+              <span className="text-slate-300">{label}</span>
+              <span className="font-semibold text-white">
+                {money(value)}
+                {cost != null && Number(cost) > 0 && <span className="ml-2 text-[11px] font-normal text-slate-500">custo {money(cost)}</span>}
+              </span>
+            </div>
+          ))}
+          {overheadCost > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">Overhead (custo indireto)</span>
+              <span className="text-[11px] text-slate-500">custo {money(overheadCost)}</span>
+            </div>
+          )}
+          {discountApplied > 0 && (
+            <div className="flex items-center justify-between text-sm text-amber-300">
+              <span>Desconto do item</span>
+              <span className="font-semibold">- {money(discountApplied)}</span>
+            </div>
+          )}
+        </div>
+        <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Total do item</p>
+            <p className="text-3xl font-black">{money(line.total)}</p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {priceSourceLabel && <Pill tone="blue">{priceSourceLabel}</Pill>}
             <Pill tone="slate">Custo {money(line.total_cost)}</Pill>
+            <Pill tone="slate">Lucro {money(Number(line.total || 0) - Number(line.total_cost || 0))}</Pill>
             <Pill tone={belowCost ? 'red' : lowMargin ? 'amber' : 'green'}>
               {belowCost || lowMargin ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               Margem {margin.toFixed(1)}%{minMargin > 0 ? ` / min ${minMargin.toFixed(0)}%` : ''}

@@ -121,6 +121,27 @@ export default function CommercialTotalsPanel({ totals, itemCount, alerts = [], 
             <MiniRow label="Margem" value={pct(margin)} tone={bad ? 'red' : warning ? 'amber' : 'green'} />
           </div>
 
+          {itemCount > 0 && (() => {
+            const rows = [
+              ['Material', totals.subtotalProducts],
+              ['Maquina', totals.subtotalMachine],
+              ['Mao de obra', totals.subtotalLabor],
+              ['Setup', totals.subtotalSetup],
+              ['Arte / design', totals.subtotalArt],
+              ['Adicionais (itens)', totals.subtotalLineAdditionals],
+              ['Adicionais (documento)', totals.additionalsTotal],
+            ].filter((row) => Number(row[1] || 0) > 0);
+            const docDiscount = Number(totals.discountValue || 0);
+            if (!rows.length && docDiscount <= 0) return null;
+            return (
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Composicao (ao vivo)</p>
+                {rows.map(([label, value]) => <MiniRow key={label} label={label} value={money(value)} />)}
+                {docDiscount > 0 && <MiniRow label="Desconto do documento" value={`- ${money(docDiscount)}`} tone="amber" />}
+              </div>
+            );
+          })()}
+
           <ItemsMiniList items={items} />
 
           <div className={`mt-3 rounded-2xl border p-3 text-sm ${bad ? 'border-red-200 bg-red-50 text-red-800' : warning ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
