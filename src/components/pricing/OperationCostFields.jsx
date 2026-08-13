@@ -3,8 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import OperationalPresetSelects from '@/components/pricing/OperationalPresetSelects';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(Number(value || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 function Field({ label, help, children }) {
   return (

@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const methods = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'parcelado', 'boleto', 'crediario'];
 
 export default function DeliveryModal({ order, open, onClose, onConfirm }) {

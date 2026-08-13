@@ -97,8 +97,22 @@ export default function PDFPedidoButton({ order, client }) {
       doc.text('TOTAL', margin + 130, y + 5.5);
       y += 8;
 
-      // Items
-      const items = order.items ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) : [];
+      // Items — le a lista estruturada (items_json). Fallback: itens salvos no
+      // banco (SalesOrderItem) e, por ultimo, um JSON legado no campo items.
+      let items = [];
+      if (order.items_json) {
+        try { items = JSON.parse(order.items_json); } catch { items = []; }
+      }
+      if ((!items || !items.length) && order.id) {
+        try {
+          const stored = await erp.entities.SalesOrderItem.filter({ sales_order_id: order.id });
+          items = stored.map((entry) => ({ description: entry.description || entry.product_name, quantity: entry.quantity, unit_price: entry.unit_price, total: entry.total }));
+        } catch { items = []; }
+      }
+      if ((!items || !items.length) && typeof order.items === 'string' && order.items.trim().startsWith('[')) {
+        try { items = JSON.parse(order.items); } catch { items = []; }
+      }
+      if (!Array.isArray(items)) items = [];
       doc.setFont('helvetica', 'normal');
       items.forEach((item, i) => {
         const bg = i % 2 === 0 ? [250, 250, 255] : [240, 240, 252];
@@ -106,10 +120,11 @@ export default function PDFPedidoButton({ order, client }) {
         doc.rect(margin, y, W - margin * 2, 8, 'F');
         doc.setTextColor(30, 30, 60);
         doc.setFontSize(9);
-        doc.text(String(item.description || item.name || ''), margin + 2, y + 5.5);
+        const lineTotal = item.total != null ? Number(item.total) : (Number(item.quantity || 1) * Number(item.unit_price || 0));
+        doc.text(String(item.description || item.name || item.product_name || ''), margin + 2, y + 5.5);
         doc.text(String(item.quantity || 1), margin + 82, y + 5.5);
-        doc.text(`R$ ${(item.unit_price || 0).toFixed(2)}`, margin + 100, y + 5.5);
-        doc.text(`R$ ${((item.quantity || 1) * (item.unit_price || 0)).toFixed(2)}`, margin + 130, y + 5.5);
+        doc.text(`R$ ${Number(item.unit_price || 0).toFixed(2)}`, margin + 100, y + 5.5);
+        doc.text(`R$ ${lineTotal.toFixed(2)}`, margin + 130, y + 5.5);
         y += 8;
       });
 

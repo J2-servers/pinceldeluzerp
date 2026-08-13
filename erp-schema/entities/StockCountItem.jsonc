@@ -10,6 +10,22 @@
       "type": "string",
       "description": "Variante"
     },
+    "product_id": {
+      "type": "string",
+      "description": "Produto contado"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Nome do produto no momento do snapshot"
+    },
+    "sku": {
+      "type": "string",
+      "description": "SKU do produto no momento do snapshot"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unidade do produto"
+    },
     "location_id": {
       "type": "string",
       "description": "Localiza\u00e7\u00e3o"

@@ -123,6 +123,8 @@ export function buildPricingContext(config = {}) {
   const serviceProfiles = activeRows(config.serviceProfiles).length ? activeRows(config.serviceProfiles) : DEFAULT_SERVICE_PROFILES;
   const markupRules = activeRows(config.markupRules);
   const materialParameters = activeRows(config.materialParameters);
+  const priceRules = Array.isArray(config.priceRules) ? config.priceRules : [];
+  const volumePricing = Array.isArray(config.volumePricing) ? config.volumePricing : [];
 
   const overheadPerMachineMinute = monthlyFixedCost / Math.max(1, parseDecimal(settings.monthly_productive_machine_minutes));
   const overheadPerLaborHour = monthlyFixedCost / Math.max(1, parseDecimal(settings.monthly_productive_labor_hours));
@@ -138,6 +140,9 @@ export function buildPricingContext(config = {}) {
     serviceProfiles,
     markupRules,
     materialParameters,
+    priceRules,
+    volumePricing,
+    nowIso: config.nowIso || '',
   };
 }
 
@@ -192,14 +197,90 @@ export function getMachineRate(profile = DEFAULT_MACHINE_PROFILE, context = buil
 
 export function findBestMarkup(product = {}, context = buildPricingContext()) {
   const group = product.product_group || product.category || 'outros';
+  // So um match real por grupo/categoria conta. Sem match, caimos no default
+  // global de margem (context.settings) — nunca no markupRules[0], que era a
+  // regra alfabeticamente primeira e podia contaminar uma categoria nao mapeada
+  // com margem de outra sem relacao.
   const rule = context.markupRules.find((item) => {
     const target = item.product_group || item.material_type || item.category || item.name;
     return String(target || '').toLowerCase() === String(group || '').toLowerCase();
-  }) || context.markupRules[0];
+  }) || null;
   return {
     target_margin_pct: firstPositive(rule?.target_margin_pct, rule?.margin_pct, context.settings.target_margin_pct),
     minimum_margin_pct: firstPositive(rule?.minimum_margin_pct, rule?.min_margin_pct, context.settings.minimum_margin_pct),
     markup_pct: parseDecimal(rule?.markup_pct || rule?.value),
+  };
+}
+
+// ── Preco por cliente e por volume (regras comerciais aplicadas no calculo) ──
+
+function ruleMatchesProduct(rule, product) {
+  if (!rule || !product) return false;
+  const variantId = product.id;
+  const groupId = product.variant_group_id || product.id;
+  if (rule.product_variant_id && String(rule.product_variant_id) === String(variantId)) return true;
+  if (rule.product_master_id && String(rule.product_master_id) === String(groupId)) return true;
+  if (rule.product_id && String(rule.product_id) === String(variantId)) return true;
+  if (rule.product_name && sameText(rule.product_name, product.name)) return true;
+  return false;
+}
+
+function ruleIsInWindow(rule, nowIso) {
+  if (rule.active === false) return false;
+  if (rule.starts_at && String(rule.starts_at) > nowIso) return false;
+  if (rule.ends_at && String(rule.ends_at) < nowIso) return false;
+  return true;
+}
+
+/**
+ * Regra de preco negociada para um cliente especifico. Retorna
+ * { price?, discount_pct?, source } ou null. Prioriza a regra de maior
+ * quantidade minima aplicavel (mais especifica), depois a mais recente.
+ */
+export function findClientPriceRule(product = {}, clientId, quantity, context = buildPricingContext()) {
+  if (!clientId) return null;
+  const nowIso = context.nowIso || '';
+  const candidates = (context.priceRules || []).filter((rule) =>
+    rule
+    && String(rule.customer_id || '') === String(clientId)
+    && ruleIsInWindow(rule, nowIso)
+    && (parseDecimal(rule.minimum_quantity) || 1) <= (parseDecimal(quantity) || 1)
+    && ruleMatchesProduct(rule, product)
+    && (parseDecimal(rule.price) > 0 || parseDecimal(rule.discount_pct) > 0),
+  );
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => (parseDecimal(b.minimum_quantity) || 1) - (parseDecimal(a.minimum_quantity) || 1));
+  const rule = candidates[0];
+  return {
+    price: parseDecimal(rule.price),
+    discount_pct: parseDecimal(rule.discount_pct),
+    source: 'client_price_rule',
+    rule_id: rule.id || null,
+  };
+}
+
+/**
+ * Faixa de desconto por volume para o produto na quantidade pedida. Retorna
+ * { unit_price?, discount_percent?, source } ou null. Escolhe a faixa de maior
+ * min_quantity que ainda cobre a quantidade (o melhor desconto aplicavel).
+ */
+export function findVolumePrice(product = {}, quantity, context = buildPricingContext()) {
+  const qty = parseDecimal(quantity) || 1;
+  const candidates = (context.volumePricing || []).filter((rule) => {
+    if (!rule || rule.active === false) return false;
+    if (!ruleMatchesProduct(rule, product)) return false;
+    const min = parseDecimal(rule.min_quantity) || 0;
+    const max = parseDecimal(rule.max_quantity) || Infinity;
+    return qty >= min && qty <= max && (parseDecimal(rule.unit_price) > 0 || parseDecimal(rule.discount_percent) > 0);
+  });
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => (parseDecimal(b.min_quantity) || 0) - (parseDecimal(a.min_quantity) || 0));
+  const rule = candidates[0];
+  return {
+    unit_price: parseDecimal(rule.unit_price),
+    discount_percent: parseDecimal(rule.discount_percent),
+    source: 'volume_pricing',
+    rule_id: rule.id || null,
   };
 }
 
@@ -340,19 +421,51 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const laborMinutes = firstPositive(line.labor_minutes, parseDecimal(line.labor_hours) * 60, service?.default_labor_minutes);
   const laborHours = laborMinutes / 60;
   const machineMinutes = firstPositive(line.machine_time_min, service?.default_machine_minutes);
-  const discountPct = parseDecimal(line.discount_pct);
   const material = materialCostForProduct(product, line, pricingMode, context);
+
+  // Adicionais nomeados de servico (ex.: "Taxa de urgencia", "Embalagem especial").
+  const additionals = Array.isArray(line.additionals) ? line.additionals : [];
+  const additionalsSum = additionals.reduce((sum, extra) => sum + parseDecimal(extra?.value), 0);
+
+  // Regras comerciais aplicadas automaticamente (preco por cliente e por volume),
+  // exceto quando a linha esta com preco travado (valor combinado congelado).
+  const priceLocked = !!line.price_locked;
+  const clientId = line.client_id || product.client_id || context.clientId || '';
+  const clientRule = priceLocked ? null : findClientPriceRule(product, clientId, quantity, context);
+  const volumeRule = priceLocked ? null : findVolumePrice(product, quantity, context);
 
   let materialSale = 0;
   let appliedBasePrice = 0;
-  if (pricingMode === 'area_m2') {
-    const pricePerM2 = firstPositive(material.sale_price_per_m2, product.price_per_m2, line.base_price, material.cost_per_m2 / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100));
-    appliedBasePrice = pricePerM2;
-    materialSale = material.area_m2 * pricePerM2 * quantity;
+  let priceSource = 'formula';
+  let fixedPriceFromRule = false;
+
+  const formulaBase = (mode) => (mode === 'area_m2'
+    ? firstPositive(material.sale_price_per_m2, product.price_per_m2, line.base_price, material.cost_per_m2 / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100))
+    : firstPositive(material.unit_sale_price, product.sale_price, line.base_price, (parseDecimal(product.cost_price) / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100))));
+
+  if (priceLocked && parseDecimal(line.base_price) > 0) {
+    appliedBasePrice = parseDecimal(line.base_price);
+    priceSource = 'locked';
+  } else if (clientRule && clientRule.price > 0) {
+    appliedBasePrice = clientRule.price;
+    priceSource = clientRule.source;
+    fixedPriceFromRule = true;
+  } else if (volumeRule && volumeRule.unit_price > 0) {
+    appliedBasePrice = volumeRule.unit_price;
+    priceSource = volumeRule.source;
+    fixedPriceFromRule = true;
   } else {
-    const unitPrice = firstPositive(material.unit_sale_price, product.sale_price, line.base_price, (parseDecimal(product.cost_price) / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100)));
-    appliedBasePrice = unitPrice;
-    materialSale = unitPrice * quantity;
+    appliedBasePrice = formulaBase(pricingMode);
+  }
+  materialSale = pricingMode === 'area_m2'
+    ? material.area_m2 * appliedBasePrice * quantity
+    : appliedBasePrice * quantity;
+
+  // Desconto automatico de regra comercial, so quando a regra nao ja fixou o preco.
+  let ruleDiscountPct = 0;
+  if (!priceLocked && !fixedPriceFromRule) {
+    if (clientRule && clientRule.discount_pct > 0) ruleDiscountPct = clientRule.discount_pct;
+    else if (volumeRule && volumeRule.discount_percent > 0) ruleDiscountPct = volumeRule.discount_percent;
   }
 
   const materialTotalCost = material.direct + material.waste;
@@ -364,8 +477,17 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const designSale = firstPositive(line.art_price, line.design_price, service?.type === 'arte' ? service?.sale_price : 0, line.art_cost);
   const overheadCostTotal = (machineMinutes * parseDecimal(snapshot.machine.overhead_minute)) + (laborHours * parseDecimal(snapshot.labor.overhead_hour));
   const serviceSaleTotal = laborSaleTotal + machineSaleTotal + setupSale + designSale;
-  const subtotal = materialSale + serviceSaleTotal;
-  const total = subtotal * (1 - discountPct / 100);
+  const subtotal = materialSale + serviceSaleTotal + additionalsSum;
+
+  // Desconto da linha: percentual manual + percentual de regra (somados), mais um
+  // desconto em R$ opcional. Nunca deixa o total negativo.
+  const manualDiscountPct = parseDecimal(line.discount_pct);
+  const effectiveDiscountPct = Math.min(100, manualDiscountPct + ruleDiscountPct);
+  const pctDiscountValue = subtotal * (effectiveDiscountPct / 100);
+  const rawValueDiscount = parseDecimal(line.discount_value);
+  const valueDiscount = Math.max(0, Math.min(rawValueDiscount, subtotal - pctDiscountValue));
+  const discountApplied = pctDiscountValue + valueDiscount;
+  const total = Math.max(0, subtotal - discountApplied);
   const totalCost = materialTotalCost + laborCostTotal + machineCostTotal + overheadCostTotal;
   const profit = total - totalCost;
   const margin = total > 0 ? (profit / total) * 100 : 0;
@@ -424,9 +546,19 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
     total: roundCurrency(total),
     unit_price: roundCurrency(quantity > 0 ? total / quantity : total),
     base_price: roundCurrency(appliedBasePrice),
+    additionals,
+    additionals_total: roundCurrency(additionalsSum),
+    discount_pct: manualDiscountPct,
+    rule_discount_pct: roundCurrency(ruleDiscountPct),
+    discount_value: roundCurrency(valueDiscount),
+    discount_applied: roundCurrency(discountApplied),
+    price_source: priceSource,
+    price_locked: priceLocked,
     profit: roundCurrency(profit),
     margin_pct: roundCurrency(margin),
     min_price: roundCurrency(minPrice),
+    target_margin_pct: roundCurrency(snapshot.rules.target_margin_pct),
+    min_margin_pct: roundCurrency(snapshot.rules.minimum_margin_pct),
     recommended_price: roundCurrency(targetPrice),
     minimum_margin_price: roundCurrency(minimumMarginPrice),
     description: descriptionParts.join(' | '),
@@ -437,12 +569,19 @@ export function summarizePricingDocument(lines, config = {}) {
   const discountPct = parseDecimal(config.discountPct);
   const generalArtCost = parseDecimal(config.generalArtCost);
   const additionalCharge = parseDecimal(config.additionalCharge);
+  // Adicionais nomeados do documento (ex.: frete, taxa de projeto) somam ao total.
+  const documentAdditionals = Array.isArray(config.additionals) ? config.additionals : [];
+  const additionalsSum = documentAdditionals.reduce((sum, extra) => sum + parseDecimal(extra?.value), 0);
   const subtotalProducts = lines.reduce((sum, line) => sum + parseDecimal(line.base_subtotal), 0);
   const subtotalServices = lines.reduce((sum, line) => sum + parseDecimal(line.services_total), 0);
-  const subtotalBeforeDiscount = lines.reduce((sum, line) => sum + parseDecimal(line.total), 0) + generalArtCost + additionalCharge;
+  const subtotalBeforeDiscount = lines.reduce((sum, line) => sum + parseDecimal(line.total), 0) + generalArtCost + additionalCharge + additionalsSum;
   const totalCost = lines.reduce((sum, line) => sum + parseDecimal(line.total_cost), 0);
-  const discountValue = subtotalBeforeDiscount * (discountPct / 100);
-  const totalFinal = subtotalBeforeDiscount - discountValue;
+  // Desconto do documento: percentual + valor fixo em R$, sem deixar negativo.
+  const pctDiscount = subtotalBeforeDiscount * (discountPct / 100);
+  const rawValueDiscount = parseDecimal(config.discountValue);
+  const valueDiscount = Math.max(0, Math.min(rawValueDiscount, subtotalBeforeDiscount - pctDiscount));
+  const discountValue = pctDiscount + valueDiscount;
+  const totalFinal = Math.max(0, subtotalBeforeDiscount - discountValue);
   const profit = totalFinal - totalCost;
   const margin = totalFinal > 0 ? (profit / totalFinal) * 100 : 0;
 
@@ -452,7 +591,9 @@ export function summarizePricingDocument(lines, config = {}) {
     subtotalBeforeDiscount: roundCurrency(subtotalBeforeDiscount),
     generalArtCost: roundCurrency(generalArtCost),
     additionalCharge: roundCurrency(additionalCharge),
+    additionalsTotal: roundCurrency(additionalsSum),
     discountPct,
+    discountValueInput: roundCurrency(rawValueDiscount),
     discountValue: roundCurrency(discountValue),
     totalCost: roundCurrency(totalCost),
     totalFinal: roundCurrency(totalFinal),

@@ -3,9 +3,6 @@ import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import GlassCard from '@/components/ui/GlassCard';
 import moment from 'moment';
-import 'moment/locale/pt-br';
-
-moment.locale('pt-br');
 
 export default function RecentTransactions({ transactions, delay = 0 }) {
   const recent = [...(transactions || [])].sort((a, b) => String(b.date || b.created_date || '').localeCompare(String(a.date || a.created_date || ''))).slice(0, 5);

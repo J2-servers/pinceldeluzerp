@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import GlassCard from '@/components/ui/GlassCard';
@@ -12,11 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import moment from 'moment';
 import { toast } from '@/components/ui/app-toast';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
+import { createAuditLog } from '@/lib/erpCoreSync';
 import { formatCurrency, parseDecimal, roundCurrency } from '@/lib/numberFormat';
+import { PARTNERS } from '@/lib/financeConstants';
 
 const CATEGORIES = ['vendas', 'servicos', 'aluguel', 'comissao', 'outros'];
 const PAYMENT_METHODS = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia', 'crediario'];
-const PARTNERS = ['Maeli', 'Wesley', 'Juliano'];
 
 const emptyForm = {
   description: '',
@@ -37,6 +39,7 @@ export default function ContasReceber() {
   const [form, setForm] = useState(emptyForm);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [search, setSearch] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const { data: receivables = [] } = useQuery({
     queryKey: ['accountsReceivable'],
@@ -44,7 +47,7 @@ export default function ContasReceber() {
   });
 
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients'],
+    queryKey: ['clients', 'list', 'name'],
     queryFn: () => erp.entities.Client.list('name'),
   });
 
@@ -67,8 +70,16 @@ export default function ContasReceber() {
   });
 
   const deleteReceivable = useMutation({
-    mutationFn: (id) => erp.entities.AccountReceivable.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['accountsReceivable'])
+    mutationFn: async (receivable) => {
+      await createAuditLog({
+        module: 'financeiro', entity_name: 'AccountReceivable', entity_id: receivable.id, action: 'delete',
+        document_number: receivable.description || receivable.client_name || '',
+        metadata: { amount: receivable.amount, due_date: receivable.due_date, received: receivable.received },
+      });
+      return erp.entities.AccountReceivable.delete(receivable.id);
+    },
+    onSuccess: () => { queryClient.invalidateQueries(['accountsReceivable']); toast.success('Conta excluida'); },
+    onError: (error) => toast.error(error.message || 'Nao foi possivel excluir'),
   });
 
   const markReceived = async (id, partner) => {
@@ -101,18 +112,20 @@ export default function ContasReceber() {
 
   const today = moment().format('YYYY-MM-DD');
 
-  const filtered = receivables.filter(r => {
+  const filtered = useMemo(() => receivables.filter(r => {
     const matchSearch = r.description?.toLowerCase().includes(search.toLowerCase()) || r.client_name?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all'
       || (statusFilter === 'pending' && !r.received)
       || (statusFilter === 'received' && r.received)
       || (statusFilter === 'overdue' && !r.received && r.due_date < today);
     return matchSearch && matchStatus;
-  });
+  }), [receivables, search, statusFilter, today]);
 
-  const totalPending = receivables.filter(r => !r.received).reduce((s, r) => s + parseDecimal(r.amount), 0);
-  const totalOverdue = receivables.filter(r => !r.received && r.due_date < today).reduce((s, r) => s + parseDecimal(r.amount), 0);
-  const totalReceivedMonth = receivables.filter(r => r.received && moment(r.received_date).isSame(moment(), 'month')).reduce((s, r) => s + parseDecimal(r.amount), 0);
+  const { totalPending, totalOverdue, totalReceivedMonth } = useMemo(() => ({
+    totalPending: receivables.filter(r => !r.received).reduce((s, r) => s + parseDecimal(r.amount), 0),
+    totalOverdue: receivables.filter(r => !r.received && r.due_date < today).reduce((s, r) => s + parseDecimal(r.amount), 0),
+    totalReceivedMonth: receivables.filter(r => r.received && moment(r.received_date).isSame(moment(), 'month')).reduce((s, r) => s + parseDecimal(r.amount), 0),
+  }), [receivables, today]);
 
   const fmt = formatCurrency;
 
@@ -128,7 +141,7 @@ export default function ContasReceber() {
           <p className="text-2xl font-bold" style={{ color: 'var(--red)' }}>{fmt(totalOverdue)}</p>
         </GlassCard>
         <GlassCard className="text-center">
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Recebido este mês</p>
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Recebido este mÃªs</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--green)' }}>{fmt(totalReceivedMonth)}</p>
         </GlassCard>
       </div>
@@ -158,7 +171,7 @@ export default function ContasReceber() {
           <Table>
             <TableHeader>
               <TableRow style={{ borderColor: 'var(--border)' }}>
-                <TableHead style={{ color: 'var(--text-tertiary)' }}>Descrição</TableHead>
+                <TableHead style={{ color: 'var(--text-tertiary)' }}>DescriÃ§Ã£o</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Cliente</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Categoria</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Vencimento</TableHead>
@@ -205,7 +218,7 @@ export default function ContasReceber() {
                             </SelectContent>
                           </Select>
                         )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteReceivable.mutate(r.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPendingDelete(r)}>
                           <Trash2 className="w-3 h-3" style={{ color: 'var(--red)' }} />
                         </Button>
                       </div>
@@ -229,7 +242,7 @@ export default function ContasReceber() {
           <form onSubmit={(e) => { e.preventDefault(); createReceivable.mutate(form); }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2">
-                <Label>Descrição *</Label>
+                <Label>DescriÃ§Ã£o *</Label>
                 <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="" required />
               </div>
               <div className="space-y-2">
@@ -267,11 +280,11 @@ export default function ContasReceber() {
                 <Input type="number" min="1" value={form.installments} onChange={e => setForm({ ...form, installments: e.target.value })} className="" />
               </div>
               <div className="space-y-2">
-                <Label>Parcela Nº</Label>
+                <Label>Parcela NÂº</Label>
                 <Input type="number" min="1" value={form.installment_number} onChange={e => setForm({ ...form, installment_number: e.target.value })} className="" />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Observações</Label>
+                <Label>ObservaÃ§Ãµes</Label>
                 <Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="" />
               </div>
             </div>
@@ -284,6 +297,14 @@ export default function ContasReceber() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(value) => !value && setPendingDelete(null)}
+        title="Excluir conta a receber?"
+        description={pendingDelete ? `${pendingDelete.description || pendingDelete.client_name || 'Conta'} - ${fmt(pendingDelete.amount)}. Fica registrada na auditoria e nao pode ser desfeita.` : ''}
+        onConfirm={() => { deleteReceivable.mutate(pendingDelete); setPendingDelete(null); }}
+      />
     </div>
   );
 }

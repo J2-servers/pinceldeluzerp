@@ -13,6 +13,9 @@ export default function InventoryToolbar({ filters, setFilters, categories, view
           <Button variant={view === 'table' ? 'default' : 'outline'} onClick={() => setView('table')} className="h-10">Tabela</Button>
           <Button variant={view === 'cards' ? 'default' : 'outline'} onClick={() => setView('cards')} className="h-10">Cards</Button>
           <Button variant={view === 'movements' ? 'default' : 'outline'} onClick={() => setView('movements')} className="h-10">Movimentos</Button>
+          <Button variant={view === 'repor' ? 'default' : 'outline'} onClick={() => setView('repor')} className="h-10">Repor</Button>
+          <Button variant={view === 'inventario' ? 'default' : 'outline'} onClick={() => setView('inventario')} className="h-10">Inventario</Button>
+          <Button variant={view === 'retalhos' ? 'default' : 'outline'} onClick={() => setView('retalhos')} className="h-10">Retalhos</Button>
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">

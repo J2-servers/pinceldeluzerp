@@ -1,7 +1,8 @@
 import React from 'react';
 import { BadgeDollarSign, Building2, HandCoins, Percent, TrendingUp, Users } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 export default function FinanceSnapshotCards({ summary }) {
   const items = [

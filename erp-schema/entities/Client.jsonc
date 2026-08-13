@@ -22,6 +22,10 @@
       "type": "string",
       "description": "Endere\u00e7o completo"
     },
+    "cpf_cnpj": {
+      "type": "string",
+      "description": "CPF ou CNPJ (somente d\u00edgitos, 11 ou 14)"
+    },
     "payment_method": {
       "type": "string",
       "enum": [
@@ -55,6 +59,11 @@
       "type": "number",
       "default": 0,
       "description": "D\u00edvida total"
+    },
+    "credit_limit": {
+      "type": "number",
+      "default": 0,
+      "description": "Limite de cr\u00e9dito em reais (0 = sem limite definido)"
     },
     "notes": {
       "type": "string",

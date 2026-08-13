@@ -20,7 +20,7 @@ export default function MaterialEstoqueSelector({ pieceWidth, pieceHeight, onMat
   const [expanded, setExpanded] = useState(false);
 
   const { data: products = [] } = useQuery({
-    queryKey: ['products'],
+    queryKey: ['products', 'list', 'name'],
     queryFn: () => erp.entities.Product.list('name')
   });
 

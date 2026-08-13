@@ -2,8 +2,9 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CalendarDays, MessageCircle, Phone, Star, Target } from 'lucide-react';
 import moment from 'moment';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 function PanelBlock({ icon: Icon, title, children }) {
   return (

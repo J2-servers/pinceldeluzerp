@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import { motion } from 'framer-motion';
@@ -8,10 +8,9 @@ import { TrendingUp, Wrench,
   Package, AlertCircle, Clock, CheckCircle, ChevronRight
 } from 'lucide-react';
 import moment from 'moment';
-import 'moment/locale/pt-br';
-moment.locale('pt-br');
+import { formatCurrency } from '@/lib/numberFormat';
 
-const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = formatCurrency;
 const TODAY = moment().format('YYYY-MM-DD');
 
 function salesAsRevenueRecords(salesOrders) {
@@ -24,7 +23,7 @@ function salesAsRevenueRecords(salesOrders) {
       date: String(order.created_date || order.delivery_date || '').slice(0, 10),
       category: 'vendas',
       order_id: order.id,
-      description: `Venda ${order.order_number || ''} — ${order.client_name || ''}`,
+      description: `Venda ${order.order_number || ''} â€” ${order.client_name || ''}`,
     }))
     .filter((item) => item.date);
 }
@@ -35,29 +34,33 @@ function buildFinancialRecords(transactions, salesOrders) {
 }
 
 export default function MobileDashboard() {
-  const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => erp.entities.Transaction.list('-date', 200) });
-  const { data: salesOrders = [] } = useQuery({ queryKey: ['salesOrders'], queryFn: () => erp.entities.SalesOrder.list('-created_date', 100) });
+  const { data: transactions = [] } = useQuery({ queryKey: ['transactions', 'list', '-date', 200], queryFn: () => erp.entities.Transaction.list('-date', 200) });
+  const { data: salesOrders = [] } = useQuery({ queryKey: ['salesOrders', 'list', '-created_date', 100], queryFn: () => erp.entities.SalesOrder.list('-created_date', 100) });
   const { data: serviceOrders = [] } = useQuery({ queryKey: ['serviceOrders'], queryFn: () => erp.entities.ServiceOrder.list('-created_date', 100) });
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => erp.entities.Product.list() });
+  const { data: products = [] } = useQuery({ queryKey: ['products', 'list'], queryFn: () => erp.entities.Product.list() });
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: () => erp.entities.Goal.list() });
 
-  const financialRecords = buildFinancialRecords(transactions, salesOrders);
+  const financialRecords = useMemo(() => buildFinancialRecords(transactions, salesOrders), [transactions, salesOrders]);
   const currentMonth = moment().format('YYYY-MM');
-  const monthTx = financialRecords.filter(t => (t.date || '').startsWith(currentMonth));
-  const totalEntradas = monthTx.filter(t => t.type === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
-  const totalSaidas = monthTx.filter(t => t.type === 'saida').reduce((a, t) => a + Number(t.amount || 0), 0);
-  const lucroLiquido = totalEntradas - totalSaidas;
-  const saldoGeral = financialRecords.filter(t => t.type === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0)
-    - financialRecords.filter(t => t.type === 'saida').reduce((a, t) => a + Number(t.amount || 0), 0);
+  const { totalEntradas, totalSaidas, lucroLiquido } = useMemo(() => {
+    const monthTx = financialRecords.filter(t => (t.date || '').startsWith(currentMonth));
+    const entradas = monthTx.filter(t => t.type === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const saidas = monthTx.filter(t => t.type === 'saida').reduce((a, t) => a + Number(t.amount || 0), 0);
+    return { totalEntradas: entradas, totalSaidas: saidas, lucroLiquido: entradas - saidas };
+  }, [financialRecords, currentMonth]);
+  const saldoGeral = useMemo(() => (
+    financialRecords.filter(t => t.type === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0)
+    - financialRecords.filter(t => t.type === 'saida').reduce((a, t) => a + Number(t.amount || 0), 0)
+  ), [financialRecords]);
 
-  const pendingOrders = salesOrders.filter(o => o.payment_status === 'pendente');
-  const emProducao = salesOrders.filter(o => o.status === 'em_producao');
-  const prontos = salesOrders.filter(o => o.status === 'pronto');
-  const activeOS = serviceOrders.filter(o => o.status === 'em_andamento');
-  const lowStock = products.filter(p => (p.quantity || 0) <= (p.min_quantity || 5));
-  const atrasados = salesOrders.filter(o =>
+  const pendingOrders = useMemo(() => salesOrders.filter(o => o.payment_status === 'pendente'), [salesOrders]);
+  const emProducao = useMemo(() => salesOrders.filter(o => o.status === 'em_producao'), [salesOrders]);
+  const prontos = useMemo(() => salesOrders.filter(o => o.status === 'pronto'), [salesOrders]);
+  const activeOS = useMemo(() => serviceOrders.filter(o => o.status === 'em_andamento'), [serviceOrders]);
+  const lowStock = useMemo(() => products.filter(p => (p.quantity || 0) <= (p.min_quantity || 5)), [products]);
+  const atrasados = useMemo(() => salesOrders.filter(o =>
     o.delivery_date && o.delivery_date < TODAY && !['entregue', 'cancelado'].includes(o.status)
-  );
+  ), [salesOrders]);
   const recentOrders = salesOrders.slice(0, 5);
 
   return (
@@ -81,11 +84,11 @@ export default function MobileDashboard() {
         <p className="text-3xl font-bold" style={{ color: saldoGeral >= 0 ? '#16a34a' : '#dc2626' }}>{fmt(saldoGeral)}</p>
         <div className="flex gap-4 mt-3 flex-wrap">
           <div>
-            <p className="text-[10px] font-semibold uppercase" style={{ color: 'var(--text-tertiary)' }}>Entradas (mês)</p>
+            <p className="text-[10px] font-semibold uppercase" style={{ color: 'var(--text-tertiary)' }}>Entradas (mÃªs)</p>
             <p className="font-bold text-sm" style={{ color: '#16a34a' }}>{fmt(totalEntradas)}</p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase" style={{ color: 'var(--text-tertiary)' }}>Saídas (mês)</p>
+            <p className="text-[10px] font-semibold uppercase" style={{ color: 'var(--text-tertiary)' }}>SaÃ­das (mÃªs)</p>
             <p className="font-bold text-sm" style={{ color: '#dc2626' }}>{fmt(totalSaidas)}</p>
           </div>
           <div>
@@ -99,9 +102,9 @@ export default function MobileDashboard() {
       <div className="px-4 grid grid-cols-2 gap-3 mb-5">
         {[
           { label: 'Pgto Pendente', value: pendingOrders.length, sub: fmt(pendingOrders.reduce((a, o) => a + (o.total || 0), 0)), color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', icon: Clock, path: 'Vendas' },
-          { label: 'Em Produção', value: emProducao.length, sub: `${prontos.length} prontos`, color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', icon: Wrench, path: 'Vendas' },
+          { label: 'Em ProduÃ§Ã£o', value: emProducao.length, sub: `${prontos.length} prontos`, color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', icon: Wrench, path: 'Vendas' },
           { label: 'OS Ativas', value: activeOS.length, sub: 'em andamento', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.25)', icon: TrendingUp, path: 'OrdensServico' },
-          { label: 'Estoque Crítico', value: lowStock.length, sub: 'abaixo do mínimo', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', icon: Package, path: 'Estoque' },
+          { label: 'Estoque CrÃ­tico', value: lowStock.length, sub: 'abaixo do mÃ­nimo', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', icon: Package, path: 'Estoque' },
         ].map(kpi => (
           <Link key={kpi.label} to={createPageUrl(kpi.path)}>
             <motion.div whileTap={{ scale: 0.97 }}
@@ -192,7 +195,7 @@ export default function MobileDashboard() {
                     <div className="h-full rounded-full transition-all"
                       style={{ width: `${pct}%`, background: pct >= 100 ? '#22c55e' : 'linear-gradient(90deg,#4f79f5,#7c3aed)' }} />
                   </div>
-                  <p className="text-[10px] mt-1 font-semibold" style={{ color: 'var(--text-tertiary)' }}>{pct.toFixed(0)}% · Meta: {fmt(g.target_value)}</p>
+                  <p className="text-[10px] mt-1 font-semibold" style={{ color: 'var(--text-tertiary)' }}>{pct.toFixed(0)}% Â· Meta: {fmt(g.target_value)}</p>
                 </div>
               );
             })}

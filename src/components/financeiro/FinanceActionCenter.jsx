@@ -1,7 +1,8 @@
 import React from 'react';
 import { AlertOctagon, CheckCircle2, Clock3, ShieldAlert } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 function ActionBlock({ icon: Icon, title, items, emptyText, tone }) {
   return (

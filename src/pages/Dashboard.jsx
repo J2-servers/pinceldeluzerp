@@ -19,6 +19,7 @@ import PaymentMethodChart from '@/components/dashboard/PaymentMethodChart';
 import MetasWidget from '@/components/dashboard/MetasWidget';
 import StrategicSummaryCard from '@/components/dashboard/StrategicSummaryCard';
 import SystemIntegrityPanel from '@/components/dashboard/SystemIntegrityPanel';
+import QueryState from '@/components/ui/QueryState';
 import {
   AlertTriangle,
   ArrowRight,
@@ -197,17 +198,35 @@ function SectionTitle({ icon: Icon, title, subtitle, accentVar = '--accent' }) {
 }
 
 export default function Dashboard() {
-  const { data: transactions = [] } = useQuery({ queryKey: ['transactions-dashboard'], queryFn: () => erp.entities.Transaction.list('-date', 600) });
-  const { data: salesOrders = [] } = useQuery({ queryKey: ['sales-dashboard'], queryFn: () => erp.entities.SalesOrder.list('-created_date', 300) });
-  const { data: quotesRaw = [] } = useQuery({ queryKey: ['quotes-dashboard'], queryFn: () => erp.entities.ProductQuote.list('-created_date', 300) });
-  const { data: products = [] } = useQuery({ queryKey: ['products-dashboard'], queryFn: () => erp.entities.Product.list('name') });
-  const { data: clients = [] } = useQuery({ queryKey: ['clients-dashboard'], queryFn: () => erp.entities.Client.list() });
-  const { data: serviceOrders = [] } = useQuery({ queryKey: ['service-dashboard'], queryFn: () => erp.entities.ServiceOrder.list('-created_date', 200) });
-  const { data: events = [] } = useQuery({ queryKey: ['events-dashboard'], queryFn: () => erp.entities.CalendarEvent.list('date', 80) });
-  const { data: goals = [] } = useQuery({ queryKey: ['goals-dashboard'], queryFn: () => erp.entities.Goal.list('-created_date', 120) });
-  const { data: machineCosts = [] } = useQuery({ queryKey: ['machine-dashboard'], queryFn: () => erp.entities.MachineCost.list('-created_date', 80) });
-  const { data: receivables = [] } = useQuery({ queryKey: ['receivables-dashboard'], queryFn: () => erp.entities.AccountReceivable.list('-due_date', 200) });
-  const { data: payables = [] } = useQuery({ queryKey: ['payables-dashboard'], queryFn: () => erp.entities.AccountPayable.list('-due_date', 200) });
+  const q1 = useQuery({ queryKey: ['transactions-dashboard'], queryFn: () => erp.entities.Transaction.list('-date', 600) });
+  const q2 = useQuery({ queryKey: ['sales-dashboard'], queryFn: () => erp.entities.SalesOrder.list('-created_date', 300) });
+  const q3 = useQuery({ queryKey: ['quotes-dashboard'], queryFn: () => erp.entities.ProductQuote.list('-created_date', 300) });
+  const q4 = useQuery({ queryKey: ['products-dashboard'], queryFn: () => erp.entities.Product.list('name') });
+  const q5 = useQuery({ queryKey: ['clients-dashboard'], queryFn: () => erp.entities.Client.list() });
+  const q6 = useQuery({ queryKey: ['service-dashboard'], queryFn: () => erp.entities.ServiceOrder.list('-created_date', 200) });
+  const q7 = useQuery({ queryKey: ['events-dashboard'], queryFn: () => erp.entities.CalendarEvent.list('date', 80) });
+  const q8 = useQuery({ queryKey: ['goals-dashboard'], queryFn: () => erp.entities.Goal.list('-created_date', 120) });
+  const q9 = useQuery({ queryKey: ['machine-dashboard'], queryFn: () => erp.entities.MachineCost.list('-created_date', 80) });
+  const q10 = useQuery({ queryKey: ['receivables-dashboard'], queryFn: () => erp.entities.AccountReceivable.list('-due_date', 200) });
+  const q11 = useQuery({ queryKey: ['payables-dashboard'], queryFn: () => erp.entities.AccountPayable.list('-due_date', 200) });
+
+  const dashboardQueries = [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11];
+  const isLoading = dashboardQueries.some((q) => q.isLoading);
+  const isError = dashboardQueries.some((q) => q.isError);
+  const firstError = dashboardQueries.find((q) => q.isError)?.error;
+  const refetchAll = () => dashboardQueries.forEach((q) => q.refetch());
+
+  const transactions = q1.data || [];
+  const salesOrders = q2.data || [];
+  const quotesRaw = q3.data || [];
+  const products = q4.data || [];
+  const clients = q5.data || [];
+  const serviceOrders = q6.data || [];
+  const events = q7.data || [];
+  const goals = q8.data || [];
+  const machineCosts = q9.data || [];
+  const receivables = q10.data || [];
+  const payables = q11.data || [];
 
   const quotes = useMemo(() => quotesRaw.map((quote) => ({
     ...quote,
@@ -276,6 +295,7 @@ export default function Dashboard() {
     <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <Header title="Dashboard Executivo" subtitle="Visão completa: finanças, comercial, produção, estoque, clientes, metas e riscos em tempo real" />
 
+      <QueryState isLoading={isLoading} isError={isError} error={firstError} onRetry={refetchAll} loadingLabel="Carregando dados do dashboard...">
       {/* Botões de ação */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
         <Link to={`${createPageUrl('Orcamentos')}?novo=1`} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', padding: '10px 20px', borderRadius: 'var(--r-md)', fontWeight: 700, fontSize: '14px' }}>
@@ -526,6 +546,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </QueryState>
     </div>
   );
 }

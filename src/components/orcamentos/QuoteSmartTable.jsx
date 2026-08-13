@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Download, Edit, Eye, Mail, MessageCircle, ShoppingCart, Trash2 } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(Number(value || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 const marginOf = (quote) => {
   const price = Number(quote.final_price || 0);

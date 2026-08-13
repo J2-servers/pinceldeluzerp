@@ -35,6 +35,10 @@
       "type": "boolean",
       "default": false,
       "description": "Conclu\u00edda"
+    },
+    "seller": {
+      "type": "string",
+      "description": "S\u00f3cio respons\u00e1vel pela meta (para metas de vendas por s\u00f3cio); vazio = geral"
     }
   },
   "required": [

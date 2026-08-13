@@ -1,0 +1,39 @@
+{
+  "name": "PriceChangeLog",
+  "type": "object",
+  "properties": {
+    "entity_name": {
+      "type": "string",
+      "description": "Tabela de precificacao alterada"
+    },
+    "record_id": {
+      "type": "string",
+      "description": "ID do registro alterado"
+    },
+    "record_label": {
+      "type": "string",
+      "description": "Nome legivel do registro"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "description": "Acao realizada"
+    },
+    "changed_fields": {
+      "type": "string",
+      "description": "JSON de [{field, old, new}] com os campos alterados"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Usuario que fez a alteracao"
+    }
+  },
+  "required": [
+    "entity_name",
+    "action"
+  ]
+}

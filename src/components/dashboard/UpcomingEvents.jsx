@@ -3,9 +3,6 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock } from 'lucide-react';
 import GlassCard from '@/components/ui/GlassCard';
 import moment from 'moment';
-import 'moment/locale/pt-br';
-
-moment.locale('pt-br');
 
 const typeConfig = {
   tarefa:     { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)' },

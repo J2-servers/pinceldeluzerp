@@ -1,8 +1,9 @@
 ﻿import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, PackagePlus, RefreshCw, Sparkles } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 export default function InventoryHero({ stats, onCreate, onMovement, onExport }) {
   return (

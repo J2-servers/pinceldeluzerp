@@ -2,13 +2,15 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import Header from '@/components/layout/Header';
+import QueryState from '@/components/ui/QueryState';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertTriangle, Download, FileBarChart, ShoppingCart, TrendingUp, Users, Wallet } from 'lucide-react';
 import { downloadCsv } from '@/lib/downloadUtils';
 import moment from 'moment';
+import { formatCurrency } from '@/lib/numberFormat';
 
 const colors = ['#5B8DEF', '#7c3aed', '#16a34a', '#f97316', '#dc2626', '#0891b2', '#db2777'];
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 const reportTypes = [
   { value: 'executivo', label: 'Executivo', icon: FileBarChart, desc: 'Visão geral do negócio' },
@@ -44,13 +46,27 @@ export default function Relatorios() {
   const [reportType, setReportType] = useState('executivo');
   const [activePeriodChip, setActivePeriodChip] = useState(2);
 
-  const { data: transactions = [] } = useQuery({ queryKey: ['transactions'], queryFn: () => erp.entities.Transaction.list('-date', 800) });
-  const { data: salesOrders = [] } = useQuery({ queryKey: ['salesOrders'], queryFn: () => erp.entities.SalesOrder.list('-created_date', 500) });
-  const { data: quotes = [] } = useQuery({ queryKey: ['productQuotes'], queryFn: () => erp.entities.ProductQuote.list('-created_date', 500) });
-  const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: () => erp.entities.Client.list() });
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => erp.entities.Product.list() });
-  const { data: payables = [] } = useQuery({ queryKey: ['accountsPayable'], queryFn: () => erp.entities.AccountPayable.list('due_date') });
-  const { data: receivables = [] } = useQuery({ queryKey: ['accountsReceivable'], queryFn: () => erp.entities.AccountReceivable.list('due_date') });
+  const transactionsQuery = useQuery({ queryKey: ['transactions', 'list', '-date', 800], queryFn: () => erp.entities.Transaction.list('-date', 800) });
+  const salesOrdersQuery = useQuery({ queryKey: ['salesOrders', 'list', '-created_date', 500], queryFn: () => erp.entities.SalesOrder.list('-created_date', 500) });
+  const quotesQuery = useQuery({ queryKey: ['productQuotes'], queryFn: () => erp.entities.ProductQuote.list('-created_date', 500) });
+  const clientsQuery = useQuery({ queryKey: ['clients', 'list'], queryFn: () => erp.entities.Client.list() });
+  const productsQuery = useQuery({ queryKey: ['products', 'list'], queryFn: () => erp.entities.Product.list() });
+  const payablesQuery = useQuery({ queryKey: ['accountsPayable'], queryFn: () => erp.entities.AccountPayable.list('due_date') });
+  const receivablesQuery = useQuery({ queryKey: ['accountsReceivable'], queryFn: () => erp.entities.AccountReceivable.list('due_date') });
+
+  const transactions = transactionsQuery.data || [];
+  const salesOrders = salesOrdersQuery.data || [];
+  const quotes = quotesQuery.data || [];
+  const clients = clientsQuery.data || [];
+  const products = productsQuery.data || [];
+  const payables = payablesQuery.data || [];
+  const receivables = receivablesQuery.data || [];
+
+  const reportQueries = [transactionsQuery, salesOrdersQuery, quotesQuery, clientsQuery, productsQuery, payablesQuery, receivablesQuery];
+  const isLoading = reportQueries.some((q) => q.isLoading);
+  const isError = reportQueries.some((q) => q.isError);
+  const firstError = reportQueries.find((q) => q.isError)?.error;
+  const refetchAll = () => reportQueries.forEach((q) => q.refetch());
 
   const data = useMemo(() => {
     const inRange = (date) => date && date >= periodStart && date <= periodEnd;
@@ -82,7 +98,7 @@ export default function Relatorios() {
       topClients: Object.entries(clientMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 8),
       categoryChart: Object.entries(categoryMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
     };
-  }, [transactions, salesOrders, quotes, clients, products, payables, receivables, periodStart, periodEnd]);
+  }, [transactions, salesOrders, quotes, products, receivables, periodStart, periodEnd]);
 
   const exportReport = () => {
     const rows = [['Indicador', 'Valor'], ['Receitas', data.income], ['Despesas', data.expense], ['Resultado', data.result], ['Vendas', data.salesTotal], ['Pedidos', data.orders.length], ['Ticket médio', data.ticket], ['Conversão orçamentos', `${data.conversion.toFixed(1)}%`], ['Clientes', clients.length], ['Produtos críticos', data.lowStock]];
@@ -108,6 +124,7 @@ export default function Relatorios() {
     <div className="space-y-6">
       <Header title="Relatórios" subtitle="Central executiva de indicadores, análises e exportações" />
 
+      <QueryState isLoading={isLoading} isError={isError} error={firstError} onRetry={refetchAll} loadingLabel="Carregando relatórios...">
       {/* Tipo de Relatório — grid de cards neumórficos */}
       <div>
         <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipo de relatório</p>
@@ -265,6 +282,7 @@ export default function Relatorios() {
           </ResponsiveContainer>
         </div>
       </div>
+      </QueryState>
     </div>
   );
 }

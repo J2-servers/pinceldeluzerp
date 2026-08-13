@@ -29,6 +29,27 @@ function Pill({ children, tone = 'slate' }) {
   return <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold ${tones[tone]}`}>{children}</span>;
 }
 
+function LineAdditionals({ additionals, onChange }) {
+  const list = Array.isArray(additionals) ? additionals : [];
+  const update = (index, field, value) => onChange(list.map((item, current) => current === index ? { ...item, [field]: value } : item));
+  const add = () => onChange([...list, { label: '', value: '' }]);
+  const remove = (index) => onChange(list.filter((_, current) => current !== index));
+  return (
+    <div className="space-y-2">
+      {list.map((item, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <Input className="h-10 rounded-xl" value={item.label} onChange={(event) => update(index, 'label', event.target.value)} placeholder="Ex: Acabamento especial" />
+          <Input className="h-10 w-24 shrink-0 rounded-xl" type="number" step="0.01" min="0" value={item.value} onChange={(event) => update(index, 'value', event.target.value)} placeholder="R$" />
+          <button type="button" className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-50" onClick={() => remove(index)}>Remover</button>
+        </div>
+      ))}
+      <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}>
+        <Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar servico ao item
+      </button>
+    </div>
+  );
+}
+
 export default function LineItemEditor({
   line,
   dimensionsRequired,
@@ -42,9 +63,13 @@ export default function LineItemEditor({
   const areaM2 = dimensionsRequired ? calcAreaM2(line.width_mm, line.height_mm) : 0;
   const profit = Number(line.total || 0) - Number(line.total_cost || 0);
   const margin = Number(line.total || 0) > 0 ? (profit / Number(line.total || 1)) * 100 : 0;
+  const minMargin = Number(line.min_margin_pct || 0);
   const belowCost = profit < 0;
-  const lowMargin = !belowCost && margin < 20;
+  const lowMargin = !belowCost && minMargin > 0 && margin < minMargin;
   const missingMeasure = dimensionsRequired && (!Number(line.width_mm || 0) || !Number(line.height_mm || 0));
+  const priceSourceLabel = line.price_source === 'client_price_rule' ? 'Preco do cliente'
+    : line.price_source === 'volume_pricing' ? 'Preco por volume'
+      : line.price_source === 'locked' ? 'Preco travado' : null;
 
   return (
     <div className="rounded-[30px] border border-blue-200 bg-white p-4 shadow-sm md:p-5">
@@ -89,18 +114,36 @@ export default function LineItemEditor({
         </div>
       </ConfigRow>
 
+      <ConfigRow title="Desconto do item" help="Percentual ou valor fixo em R$ so neste item.">
+        <div className="grid grid-cols-2 gap-3">
+          <Input className="h-12 rounded-2xl" type="number" min="0" max="100" value={line.discount_pct || 0} onChange={(event) => onChange('discount_pct', event.target.value)} placeholder="%" />
+          <Input className="h-12 rounded-2xl" type="number" step="0.01" min="0" value={line.discount_value || 0} onChange={(event) => onChange('discount_value', event.target.value)} placeholder="R$" />
+        </div>
+      </ConfigRow>
+
+      <ConfigRow title="Servicos adicionais" help="Itens extras cobrados junto (acabamento, montagem...).">
+        <LineAdditionals additionals={line.additionals} onChange={(next) => onChange('additionals', next)} />
+      </ConfigRow>
+
       <div className="mt-4 rounded-[24px] bg-slate-950 p-5 text-white">
         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Subtotal calculado</p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <p className="text-3xl font-black">{money(line.total)}</p>
           <div className="flex flex-wrap gap-2">
+            {priceSourceLabel && <Pill tone="blue">{priceSourceLabel}</Pill>}
             <Pill tone="slate">Custo {money(line.total_cost)}</Pill>
             <Pill tone={belowCost ? 'red' : lowMargin ? 'amber' : 'green'}>
               {belowCost || lowMargin ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              Margem {margin.toFixed(1)}%
+              Margem {margin.toFixed(1)}%{minMargin > 0 ? ` / min ${minMargin.toFixed(0)}%` : ''}
             </Pill>
           </div>
         </div>
+        {lowMargin && (
+          <p className="mt-3 text-xs font-bold text-amber-300">
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
+            Abaixo da margem minima da categoria. Voce ainda pode adicionar, mas revise o preco.
+          </p>
+        )}
       </div>
 
       {line.material_pricing_warning && (

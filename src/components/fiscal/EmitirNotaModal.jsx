@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { erp } from '@/api/erpClient';
+import { formatCpfCnpj, onlyCpfCnpjDigits } from '@/components/clientes/cpfCnpjUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,26 @@ export default function EmitirNotaModal({ open = true, onClose, pedido = null, o
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState(null);
+
+  // Pre-preenche o CPF/CNPJ com o documento salvo no cadastro do cliente do pedido (campo continua editavel).
+  useEffect(() => {
+    if (!open || (!activeOrder?.client_id && !activeOrder?.client_name)) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        let matches = [];
+        if (activeOrder.client_id) matches = await erp.entities.Client.filter({ id: activeOrder.client_id }, undefined, 1);
+        if (matches.length === 0 && activeOrder.client_name) matches = await erp.entities.Client.filter({ name: activeOrder.client_name }, undefined, 1);
+        const savedDoc = onlyCpfCnpjDigits(matches[0]?.cpf_cnpj);
+        if (!cancelled && savedDoc) {
+          setForm((prev) => (prev.cliente_cpf_cnpj ? prev : { ...prev, cliente_cpf_cnpj: formatCpfCnpj(savedDoc) }));
+        }
+      } catch {
+        // Sem acesso ao cadastro: o campo segue em branco para digitacao manual, como antes.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, activeOrder]);
 
   const reset = () => {
     setResultado(null);

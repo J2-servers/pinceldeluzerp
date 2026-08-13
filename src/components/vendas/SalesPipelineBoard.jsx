@@ -2,8 +2,9 @@ import React from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Edit, Eye, PackageCheck, Receipt, Truck } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const columns = [['novo', 'Novos'], ['em_producao', 'Produção'], ['pronto', 'Prontos'], ['entregue', 'Entregues'], ['cancelado', 'Cancelados']];
 
 export default function SalesPipelineBoard({ orders, onView, onEdit, onStatusChange, onInvoice }) {

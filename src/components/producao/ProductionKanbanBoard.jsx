@@ -3,8 +3,9 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, ChevronLeft, PackageCheck, Truck } from 'lucide-react';
 import moment from 'moment';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const columns = [['novo', 'Novos'], ['em_producao', 'Em produção'], ['pronto', 'Prontos'], ['entregue', 'Entregues']];
 
 export default function ProductionKanbanBoard({ orders, onStatus, onDeliver }) {

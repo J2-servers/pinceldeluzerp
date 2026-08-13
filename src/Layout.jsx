@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
@@ -19,6 +20,7 @@ function applyTheme(isDark) {
 }
 
 export default function Layout({ children, currentPageName }) {
+  const navigate = useNavigate();
   const isMobilePage = MOBILE_PAGES.includes(currentPageName);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [companyConfig, setCompanyConfig] = useState(null);
@@ -45,7 +47,7 @@ export default function Layout({ children, currentPageName }) {
   const companyLogo = getCompanyLogoUrl(companyConfig, 'app');
   const companyName = companyConfig?.company_name || 'Pincel de Luz';
   const openPersonalization = () => {
-    window.location.href = `${createPageUrl('Configuracoes')}?tab=personalizacao`;
+    navigate(`${createPageUrl('Configuracoes')}?tab=personalizacao`);
   };
 
   return (

@@ -35,6 +35,24 @@
     "location": {
       "type": "string",
       "description": "Localiza\u00e7\u00e3o"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Produto area_m2 vinculado (opcional). Usado para baixar a area do saldo ao descartar como sucata."
+    },
+    "used_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando o retalho foi marcado como utilizado"
+    },
+    "discarded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando o retalho foi descartado como sucata (perda real)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o retalho"
     }
   },
   "required": [

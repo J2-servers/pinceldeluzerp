@@ -7,17 +7,41 @@ const defaultApiUrl = () => {
 
 const API_URL = import.meta.env.VITE_LOCAL_API_URL ?? defaultApiUrl();
 const API_TOKEN = import.meta.env.VITE_LOCAL_API_TOKEN || '';
+const SESSION_STORAGE_KEY = 'pincel-session';
 
 const jsonClone = (value) => JSON.parse(JSON.stringify(value));
 
+// ── Sessao (token + usuario retornados pelo login/bootstrap) ───
+function readStoredSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || !parsed?.user) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSession(token, user) {
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ token, user }));
+}
+
+function clearStoredSession() {
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
 async function request(path, options = {}) {
   let response;
+  const session = readStoredSession();
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(API_TOKEN ? { 'X-Pincel-Luz-Api-Key': API_TOKEN } : {}),
+        ...(session?.token ? { 'Authorization': `Bearer ${session.token}` } : {}),
         ...(options.headers || {}),
       },
     });
@@ -31,7 +55,10 @@ async function request(path, options = {}) {
   } catch {
     payload = { error: text };
   }
-  if (!response.ok) throw new Error(payload?.error || `Erro HTTP ${response.status}`);
+  if (!response.ok) {
+    if (response.status === 401) clearStoredSession();
+    throw new Error(payload?.error || `Erro HTTP ${response.status}`);
+  }
   return payload;
 }
 
@@ -107,19 +134,47 @@ export const localSqliteClient = {
     },
   }),
   auth: {
+    async status() {
+      return (await request('/api/local/auth/status')).data;
+    },
+    async bootstrap({ name, email, password }) {
+      const payload = await request('/api/local/auth/bootstrap', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password }),
+      });
+      writeStoredSession(payload.data.token, payload.data.user);
+      return payload.data;
+    },
+    async login(email, password) {
+      const payload = await request('/api/local/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      writeStoredSession(payload.data.token, payload.data.user);
+      return payload.data;
+    },
+    async logout() {
+      const session = readStoredSession();
+      clearStoredSession();
+      if (session?.token) {
+        try {
+          await request('/api/local/auth/logout', { method: 'POST', body: JSON.stringify({ token: session.token }) });
+        } catch {
+          // sessao ja limpa localmente; falha ao avisar o servidor nao deve travar o logout
+        }
+      }
+    },
     async me() {
-      return {
-        id: 'local-user',
-        full_name: 'Usuario Local',
-        email: 'local@pinceldeluz.local',
-        role: 'admin',
-      };
+      return readStoredSession()?.user || null;
     },
-    logout() {
-      return undefined;
+    getCachedUser() {
+      return readStoredSession()?.user || null;
     },
-    redirectToLogin() {
-      return undefined;
+    async changePassword(currentPassword, newPassword) {
+      return request('/api/local/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
     },
   },
   integrations: {

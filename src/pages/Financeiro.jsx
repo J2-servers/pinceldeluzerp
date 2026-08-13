@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import Header from '@/components/layout/Header';
+import QueryState from '@/components/ui/QueryState';
 import MovimentacoesTab from '@/components/financeiro/MovimentacoesTab';
 import ContasPagar from '@/components/financeiro/ContasPagar';
 import ContasReceber from '@/components/financeiro/ContasReceber';
@@ -17,8 +18,8 @@ import { Download, RefreshCw, TrendingUp, TrendingDown, DollarSign, Activity, Al
 import moment from 'moment';
 import { formatCurrency, parseDecimal } from '@/lib/numberFormat';
 import { downloadCsv } from '@/lib/downloadUtils';
+import { PARTNERS } from '@/lib/financeConstants';
 
-const PARTNERS = ['Maeli', 'Wesley', 'Juliano'];
 const money = formatCurrency;
 const normalizeDate = (date) => date || '9999-12-31';
 
@@ -103,30 +104,43 @@ function HealthRing({ score, label }) {
 export default function Financeiro() {
   const [activeTab, setActiveTab] = useState('cockpit');
 
-  const { data: transactions = [], refetch: refetchTransactions } = useQuery({
-    queryKey: ['transactions'],
+  const transactionsQuery = useQuery({
+    queryKey: ['transactions', 'list', '-date'],
     queryFn: () => erp.entities.Transaction.list('-date'),
   });
-
-  const { data: payables = [], refetch: refetchPayables } = useQuery({
+  const payablesQuery = useQuery({
     queryKey: ['accountsPayable'],
     queryFn: () => erp.entities.AccountPayable.list('due_date'),
   });
-
-  const { data: receivables = [], refetch: refetchReceivables } = useQuery({
+  const receivablesQuery = useQuery({
     queryKey: ['accountsReceivable'],
     queryFn: () => erp.entities.AccountReceivable.list('due_date'),
   });
-
-  const { data: fixedExpenses = [], refetch: refetchFixedExpenses } = useQuery({
+  const fixedExpensesQuery = useQuery({
     queryKey: ['fixedExpenses'],
     queryFn: () => erp.entities.FixedExpense.filter({ active: true }),
   });
-
-  const { data: capitalMovements = [], refetch: refetchCapital } = useQuery({
+  const capitalMovementsQuery = useQuery({
     queryKey: ['partnerCapital'],
     queryFn: () => erp.entities.PartnerCapital.list('-date'),
   });
+
+  const transactions = transactionsQuery.data || [];
+  const payables = payablesQuery.data || [];
+  const receivables = receivablesQuery.data || [];
+  const fixedExpenses = fixedExpensesQuery.data || [];
+  const capitalMovements = capitalMovementsQuery.data || [];
+  const refetchTransactions = transactionsQuery.refetch;
+  const refetchPayables = payablesQuery.refetch;
+  const refetchReceivables = receivablesQuery.refetch;
+  const refetchFixedExpenses = fixedExpensesQuery.refetch;
+  const refetchCapital = capitalMovementsQuery.refetch;
+
+  const financeQueries = [transactionsQuery, payablesQuery, receivablesQuery, fixedExpensesQuery, capitalMovementsQuery];
+  const isLoading = financeQueries.some((q) => q.isLoading);
+  const isError = financeQueries.some((q) => q.isError);
+  const firstError = financeQueries.find((q) => q.isError)?.error;
+  const refetchAll = () => financeQueries.forEach((q) => q.refetch());
 
   const today = moment().format('YYYY-MM-DD');
   const nextSevenDays = moment().add(7, 'days').format('YYYY-MM-DD');
@@ -309,6 +323,7 @@ export default function Financeiro() {
     <div style={{ padding: '0 0 40px', display: 'flex', flexDirection: 'column', gap: 28 }}>
       <Header title="Financeiro" subtitle="Cockpit completo de caixa, contas, riscos, projeções e governança" />
 
+      <QueryState isLoading={isLoading} isError={isError} error={firstError} onRetry={refetchAll} loadingLabel="Carregando dados financeiros...">
       {/* Ações */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <button className="btn-nm" onClick={refreshAll} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -453,6 +468,7 @@ export default function Financeiro() {
         {activeTab === 'comissoes' && <GestaoComissoes />}
         {activeTab === 'impostos' && <ImpostoSimples receitaAnual={financial.yearIncome} />}
       </section>
+      </QueryState>
     </div>
   );
 }

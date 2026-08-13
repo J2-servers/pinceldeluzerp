@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import Header from '@/components/layout/Header';
@@ -166,7 +166,7 @@ export default function OrdensServico() {
   const [formData, setFormData] = useState(defaultForm);
 
   const { data: serviceOrders = [] } = useQuery({ queryKey: ['serviceOrders'], queryFn: () => erp.entities.ServiceOrder.list('-created_date') });
-  const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: () => erp.entities.Client.list('name') });
+  const { data: clients = [] } = useQuery({ queryKey: ['clients', 'list', 'name'], queryFn: () => erp.entities.Client.list('name') });
 
   const createMutation = useMutation({
     mutationFn: data => erp.entities.ServiceOrder.create(data),
@@ -203,15 +203,17 @@ export default function OrdensServico() {
     await updateMutation.mutateAsync({ id: os.id, data: updates });
   };
 
-  const filteredOrders = serviceOrders.filter(os => {
+  const filteredOrders = useMemo(() => serviceOrders.filter(os => {
     const s = os.title?.toLowerCase().includes(searchQuery.toLowerCase()) || os.client_name?.toLowerCase().includes(searchQuery.toLowerCase());
     return s && (statusFilter === 'all' || os.status === statusFilter);
-  });
+  }), [serviceOrders, searchQuery, statusFilter]);
 
-  const emAndamento = serviceOrders.filter(o => o.status === 'em_andamento').length;
-  const aguardando = serviceOrders.filter(o => o.status === 'aguardando').length;
-  const concluidas = serviceOrders.filter(o => o.status === 'concluida').length;
-  const urgentes = serviceOrders.filter(o => o.priority === 'urgente' && !['concluida', 'cancelada'].includes(o.status)).length;
+  const { emAndamento, aguardando, concluidas, urgentes } = useMemo(() => ({
+    emAndamento: serviceOrders.filter(o => o.status === 'em_andamento').length,
+    aguardando: serviceOrders.filter(o => o.status === 'aguardando').length,
+    concluidas: serviceOrders.filter(o => o.status === 'concluida').length,
+    urgentes: serviceOrders.filter(o => o.priority === 'urgente' && !['concluida', 'cancelada'].includes(o.status)).length,
+  }), [serviceOrders]);
 
   const STATUS_CHIPS = [
     { value: 'all', label: 'Todos' },

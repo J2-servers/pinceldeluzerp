@@ -1,10 +1,11 @@
+import { Suspense } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
-import { AuthProvider } from '@/lib/AuthContext';
 import { SessionProvider, useSession } from '@/lib/auth/useAuth';
 import LoginScreen from '@/components/auth/LoginScreen';
 import AccessDenied from '@/components/auth/AccessDenied';
@@ -18,6 +19,14 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
 
+function PageLoading() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
+      <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
+    </div>
+  );
+}
+
 // Envolve uma página com a checagem de permissão de leitura do módulo.
 function Guarded({ pageKey, children }) {
   const { user } = useSession();
@@ -25,7 +34,7 @@ function Guarded({ pageKey, children }) {
   if (required && !can(user, required)) {
     return <AccessDenied pageKey={pageKey} required={required} />;
   }
-  return children;
+  return <Suspense fallback={<PageLoading />}>{children}</Suspense>;
 }
 
 const AuthenticatedApp = () => {
@@ -61,16 +70,14 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <SessionProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
-        </QueryClientProvider>
-      </SessionProvider>
-    </AuthProvider>
+    <SessionProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <AuthenticatedApp />
+        </Router>
+        <Toaster />
+      </QueryClientProvider>
+    </SessionProvider>
   )
 }
 

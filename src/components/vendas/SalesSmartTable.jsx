@@ -2,8 +2,9 @@ import React from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { CheckCircle, Download, Edit, Eye, FileText, PackageCheck, Receipt, Trash2, Truck } from 'lucide-react';
 import moment from 'moment';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 const ActionBtn = ({ title, onClick, children, danger }) => (
   <button

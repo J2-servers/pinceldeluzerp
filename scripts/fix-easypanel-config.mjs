@@ -107,8 +107,6 @@ function fixService(service) {
   }
   env.set('PINCEL_LUZ_DB', '/app/database/pincel-luz-erp.sqlite');
   env.set('PINCEL_LUZ_ALLOWED_ORIGINS', `https://${host}`);
-  env.delete('VITE_LOCAL_API_TOKEN');
-  env.delete('PINCEL_LUZ_API_TOKEN');
   data.env = stringifyEnv(env);
 
   data.domains = Array.isArray(data.domains) && data.domains.length

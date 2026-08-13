@@ -1,0 +1,88 @@
+{
+  "name": "ProductBOMItem",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Produto fabricado dono desta ficha técnica"
+    },
+    "line_type": {
+      "type": "string",
+      "enum": [
+        "material",
+        "operation"
+      ],
+      "default": "material",
+      "description": "Linha de material consumido ou operação executada"
+    },
+    "component_product_id": {
+      "type": "string",
+      "description": "Produto/material consumido (para line_type=material)"
+    },
+    "component_name": {
+      "type": "string",
+      "description": "Nome do material ou da operação"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantidade de material por 1 unidade do produto fabricado"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unidade do material (un, m2, m, kg...)"
+    },
+    "waste_pct": {
+      "type": "number",
+      "default": 0,
+      "description": "Perda/refugo do material (%)"
+    },
+    "operation_name": {
+      "type": "string",
+      "description": "Nome da operação (corte laser, gravação, montagem...)"
+    },
+    "machine_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutos de máquina por unidade"
+    },
+    "machine_cost_per_min": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo de máquina por minuto (R$)"
+    },
+    "labor_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Minutos de mão-de-obra por unidade"
+    },
+    "labor_cost_per_hour": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo de mão-de-obra por hora (R$)"
+    },
+    "unit_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo unitário do material no momento (snapshot)"
+    },
+    "line_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo total desta linha por 1 unidade do produto"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observação da linha"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Ordem de exibição"
+    }
+  },
+  "required": [
+    "product_id",
+    "line_type"
+  ]
+}

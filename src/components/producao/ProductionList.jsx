@@ -4,8 +4,9 @@ import moment from 'moment';
 
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 export default function ProductionList({ orders, onStatus, onDeliver }) {
   if (!orders.length) {

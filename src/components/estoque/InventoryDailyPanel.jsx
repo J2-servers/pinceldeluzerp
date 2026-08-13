@@ -1,7 +1,8 @@
 import React from 'react';
 import { AlertTriangle, DollarSign, PackageX, Tags } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 function Block({ icon: Icon, title, children }) {
   return <div className="rounded-[24px] p-4 bg-white/65 border border-white shadow-sm"><div className="flex items-center gap-2 mb-3"><Icon className="w-4 h-4 text-purple-600" /><h3 className="font-black text-slate-800">{title}</h3></div><div className="space-y-2">{children}</div></div>;

@@ -1,25 +1,28 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  BadgePercent,
   Calculator,
   CheckCircle2,
   Factory,
   Gauge,
+  History,
   Landmark,
   Package,
   Plus,
   Save,
   Scissors,
-  Trash2,
+  SlidersHorizontal,
+  Tag,
   Users,
 } from 'lucide-react';
 import { erp } from '@/api/erpClient';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useSession } from '@/lib/auth/useAuth';
 import {
   DEFAULT_LABOR_PROFILE,
   DEFAULT_MACHINE_PROFILE,
@@ -30,15 +33,25 @@ import {
   getMachineRate,
   money,
 } from '@/lib/pricingEngine';
+import { CrudSection, EditingNotice, EmptyHint, Field, RowCard } from '@/components/pricing/pricingUi';
+import { diffChangedFields, logPriceChange, snapshotFields } from '@/components/pricing/priceChangeLog';
+import PricingSettingsSection from '@/components/pricing/PricingSettingsSection';
+import PriceChangeHistorySection from '@/components/pricing/PriceChangeHistorySection';
+import ProductPriceRulesSection from '@/components/pricing/ProductPriceRulesSection';
+import VolumePricingSection from '@/components/pricing/VolumePricingSection';
 
 const tabs = [
   { id: 'visao', label: 'Visao geral', icon: Calculator },
+  { id: 'parametros', label: 'Parametros', icon: SlidersHorizontal },
   { id: 'despesas', label: 'Despesas', icon: Landmark },
   { id: 'maquinas', label: 'Maquinas', icon: Factory },
   { id: 'equipe', label: 'Mao de obra', icon: Users },
   { id: 'materiais', label: 'Materiais', icon: Package },
   { id: 'servicos', label: 'Servicos', icon: Scissors },
   { id: 'regras', label: 'Margens', icon: Gauge },
+  { id: 'cliente', label: 'Preco por cliente', icon: Tag },
+  { id: 'volume', label: 'Desconto por volume', icon: BadgePercent },
+  { id: 'historico', label: 'Historico', icon: History },
 ];
 
 const expenseDefaults = [
@@ -103,12 +116,20 @@ const materialDefaults = [
   },
 ];
 
-const seedEntityMissingByName = async (entity, currentRows, defaults) => {
+const seedEntityMissingByName = async (entity, currentRows, defaults, userName) => {
   const existingNames = new Set(currentRows.map((item) => String(item.name || '').toLowerCase()));
   for (const item of defaults) {
     const name = String(item.name || '').toLowerCase();
     if (!existingNames.has(name)) {
-      await erp.entities[entity].create(item);
+      const created = await erp.entities[entity].create(item);
+      await logPriceChange({
+        entityName: entity,
+        recordId: created?.id,
+        recordLabel: item.name,
+        action: 'create',
+        changedFields: diffChangedFields({}, item),
+        userName,
+      });
     }
   }
 };
@@ -132,16 +153,6 @@ const laborDefaults = [
   { name: 'Designer / arte finalista', role: 'designer', internal_hour_cost: 35, sale_hour_price: 90, active: true },
 ];
 
-function Field({ label, children, help }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</Label>
-      {children}
-      {help && <p className="text-[11px] leading-snug text-slate-500">{help}</p>}
-    </div>
-  );
-}
-
 function MetricCard({ icon: Icon, label, value, detail, tone = 'blue' }) {
   const toneClass = {
     blue: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -158,38 +169,6 @@ function MetricCard({ icon: Icon, label, value, detail, tone = 'blue' }) {
       <p className="mt-2 text-2xl font-black">{value}</p>
       {detail && <p className="mt-1 text-xs opacity-80">{detail}</p>}
     </div>
-  );
-}
-
-function EmptyHint({ children }) {
-  return <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">{children}</div>;
-}
-
-function RowCard({ title, subtitle, metrics = [], onDelete }) {
-  return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-black text-slate-900 break-words">{title}</h3>
-          {subtitle && <p className="mt-1 text-sm text-slate-500 break-words">{subtitle}</p>}
-        </div>
-        {onDelete && (
-          <Button type="button" variant="outline" size="sm" onClick={onDelete} className="shrink-0 text-red-600">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-      {!!metrics.length && (
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="text-[11px] font-bold uppercase text-slate-500">{metric.label}</p>
-              <p className="text-sm font-black text-slate-900">{metric.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </article>
   );
 }
 
@@ -251,6 +230,8 @@ function materialFromProduct(product) {
 
 export default function Precificacao() {
   const queryClient = useQueryClient();
+  const { user } = useSession();
+  const userName = user?.name || user?.email || 'Sistema';
   const [activeTab, setActiveTab] = useState('visao');
   const fixedExpenses = useEntity('FixedExpense', 'name');
   const machineCosts = useEntity('MachineCost', 'name');
@@ -273,22 +254,71 @@ export default function Precificacao() {
     settings,
   }), [fixedExpenses.data, machineCosts.data, laborProfiles.data, serviceProfiles.data, markupRules.data, materialParameters.data, settings]);
 
+  const invalidateWithHistory = (entity) => {
+    queryClient.invalidateQueries({ queryKey: [entity] });
+    queryClient.invalidateQueries({ queryKey: ['PriceChangeLog'] });
+  };
+
   const createMutation = useMutation({
-    mutationFn: ({ entity, data }) => erp.entities[entity].create(data),
-    onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: [variables.entity] }),
+    mutationFn: async ({ entity, data }) => {
+      const created = await erp.entities[entity].create(data);
+      await logPriceChange({
+        entityName: entity,
+        recordId: created?.id,
+        recordLabel: data.name || data.product_name || '',
+        action: 'create',
+        changedFields: diffChangedFields({}, data),
+        userName,
+      });
+      return created;
+    },
+    onSuccess: (_, variables) => invalidateWithHistory(variables.entity),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ entity, id, data, before }) => {
+      const updated = await erp.entities[entity].update(id, data);
+      const changed = diffChangedFields(before || {}, data);
+      if (changed.length) {
+        await logPriceChange({
+          entityName: entity,
+          recordId: id,
+          recordLabel: data.name || data.product_name || before?.name || '',
+          action: 'update',
+          changedFields: changed,
+          userName,
+        });
+      }
+      return updated;
+    },
+    onSuccess: (_, variables) => invalidateWithHistory(variables.entity),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: ({ entity, id }) => erp.entities[entity].delete(id),
-    onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: [variables.entity] }),
+    mutationFn: async ({ entity, id, record }) => {
+      await erp.entities[entity].delete(id);
+      await logPriceChange({
+        entityName: entity,
+        recordId: id,
+        recordLabel: record?.name || record?.product_name || '',
+        action: 'delete',
+        changedFields: snapshotFields(record),
+        userName,
+      });
+    },
+    onSuccess: (_, variables) => invalidateWithHistory(variables.entity),
   });
 
   const seedMutation = useMutation({
     mutationFn: async () => {
-      if (!pricingSettings.data.length) await erp.entities.PricingSettings.create({ ...DEFAULT_PRICING_SETTINGS, name: 'Configuracao padrao', active: true });
-      await seedEntityMissingByName('FixedExpense', fixedExpenses.data, expenseDefaults);
-      await seedEntityMissingByName('MachineCost', machineCosts.data, machineDefaults);
-      await seedEntityMissingByName('LaborRateProfile', laborProfiles.data, laborDefaults);
+      if (!pricingSettings.data.length) {
+        const data = { ...DEFAULT_PRICING_SETTINGS, name: 'Configuracao padrao', active: true };
+        const created = await erp.entities.PricingSettings.create(data);
+        await logPriceChange({ entityName: 'PricingSettings', recordId: created?.id, recordLabel: 'Configuracao padrao', action: 'create', changedFields: diffChangedFields({}, data), userName });
+      }
+      await seedEntityMissingByName('FixedExpense', fixedExpenses.data, expenseDefaults, userName);
+      await seedEntityMissingByName('MachineCost', machineCosts.data, machineDefaults, userName);
+      await seedEntityMissingByName('LaborRateProfile', laborProfiles.data, laborDefaults, userName);
       await seedEntityMissingByName('ServicePricingProfile', serviceProfiles.data, DEFAULT_SERVICE_PROFILES.map((profile) => ({
         name: profile.name,
         service_type: profile.service_type,
@@ -297,13 +327,13 @@ export default function Precificacao() {
         setup_fee: profile.setup_fee,
         sale_price: profile.sale_price,
         active: profile.active,
-      })));
-      await seedEntityMissingByName('MarkupRule', markupRules.data, markupDefaults);
-      await seedEntityMissingByName('OperationalPreset', operationalPresets.data, presetDefaults);
-      await seedEntityMissingByName('MaterialParameter', materialParameters.data, materialDefaults);
+      })), userName);
+      await seedEntityMissingByName('MarkupRule', markupRules.data, markupDefaults, userName);
+      await seedEntityMissingByName('OperationalPreset', operationalPresets.data, presetDefaults, userName);
+      await seedEntityMissingByName('MaterialParameter', materialParameters.data, materialDefaults, userName);
     },
     onSuccess: () => {
-      ['PricingSettings', 'FixedExpense', 'MachineCost', 'LaborRateProfile', 'ServicePricingProfile', 'MarkupRule', 'OperationalPreset', 'MaterialParameter'].forEach((entity) => {
+      ['PricingSettings', 'FixedExpense', 'MachineCost', 'LaborRateProfile', 'ServicePricingProfile', 'MarkupRule', 'OperationalPreset', 'MaterialParameter', 'PriceChangeLog'].forEach((entity) => {
         queryClient.invalidateQueries({ queryKey: [entity] });
       });
     },
@@ -322,11 +352,12 @@ export default function Precificacao() {
         .filter((material) => material.name && (material.cost_per_m2 > 0 || material.unit_cost > 0 || material.sale_price_per_m2 > 0 || material.sale_price > 0));
 
       for (const material of candidates) {
-        await erp.entities.MaterialParameter.create(material);
+        const created = await erp.entities.MaterialParameter.create(material);
+        await logPriceChange({ entityName: 'MaterialParameter', recordId: created?.id, recordLabel: material.name, action: 'create', changedFields: diffChangedFields({}, material), userName });
       }
       return candidates.length;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['MaterialParameter'] }),
+    onSuccess: () => invalidateWithHistory('MaterialParameter'),
   });
 
   const [expenseForm, setExpenseForm] = useState({ name: '', category: 'estrutura', amount: '', active: true });
@@ -336,9 +367,118 @@ export default function Precificacao() {
   const [ruleForm, setRuleForm] = useState({ name: '', product_group: 'outros', minimum_margin_pct: 20, target_margin_pct: 35, active: true });
   const [materialForm, setMaterialForm] = useState({ name: '', material_type: 'Acrilico', pricing_mode: 'area_m2', unit: 'm2', sheet_width_mm: '', sheet_height_mm: '', sheet_cost: '', cost_per_m2: '', sale_price_per_m2: '', unit_cost: '', sale_price: '', waste_pct: 12, active: true, notes: '' });
 
+  // Edicao in-place: guarda o id em edicao por entidade. O formulario de
+  // criacao vira formulario de edicao e o salvamento usa update(id, payload),
+  // preservando o id do registro e as referencias existentes.
+  const [editingIds, setEditingIds] = useState({});
+  const setEditing = (entity, id) => setEditingIds((prev) => ({ ...prev, [entity]: id }));
+
+  const entityRows = {
+    FixedExpense: fixedExpenses.data,
+    MachineCost: machineCosts.data,
+    LaborRateProfile: laborProfiles.data,
+    ServicePricingProfile: serviceProfiles.data,
+    MarkupRule: markupRules.data,
+    MaterialParameter: materialParameters.data,
+  };
+
+  const resetExpenseForm = () => setExpenseForm({ name: '', category: 'estrutura', amount: '', active: true });
+  const resetMachineForm = () => setMachineForm({ name: '', machine_type: 'laser', internal_minute_cost: '', sale_minute_price: '', setup_fee: 0, monthly_total_cost: '', productive_minutes_month: 7200, active: true });
+  const resetLaborForm = () => setLaborForm({ name: '', role: 'operador', internal_hour_cost: '', sale_hour_price: '', active: true });
+  const resetServiceForm = () => setServiceForm({ name: '', service_type: 'gravacao', default_machine_minutes: 0, default_labor_minutes: 0, setup_fee: 0, sale_price: 0, notes: '', active: true });
+  const resetRuleForm = () => setRuleForm({ name: '', product_group: 'outros', minimum_margin_pct: 20, target_margin_pct: 35, active: true });
+  const resetMaterialForm = () => setMaterialForm({ name: '', material_type: 'Acrilico', pricing_mode: 'area_m2', unit: 'm2', sheet_width_mm: '', sheet_height_mm: '', sheet_cost: '', cost_per_m2: '', sale_price_per_m2: '', unit_cost: '', sale_price: '', waste_pct: 12, active: true, notes: '' });
+
   const save = (entity, data, reset) => {
-    createMutation.mutate({ entity, data });
+    const editingId = editingIds[entity];
+    if (editingId) {
+      const before = (entityRows[entity] || []).find((row) => String(row.id) === String(editingId));
+      updateMutation.mutate({ entity, id: editingId, data, before });
+    } else {
+      createMutation.mutate({ entity, data });
+    }
+    setEditing(entity, null);
     reset();
+  };
+
+  const cancelEdit = (entity, reset) => {
+    setEditing(entity, null);
+    reset();
+  };
+
+  const startExpenseEdit = (item) => {
+    setEditing('FixedExpense', item.id);
+    setExpenseForm({ name: item.name || '', category: item.category || 'estrutura', amount: item.amount ?? '', active: item.active !== false });
+  };
+
+  const startMachineEdit = (item) => {
+    setEditing('MachineCost', item.id);
+    setMachineForm({
+      name: item.name || item.machine_name || '',
+      machine_type: item.machine_type || 'laser',
+      internal_minute_cost: item.internal_minute_cost ?? '',
+      sale_minute_price: item.sale_minute_price ?? '',
+      setup_fee: item.setup_fee ?? 0,
+      monthly_total_cost: item.monthly_total_cost ?? '',
+      productive_minutes_month: item.productive_minutes_month ?? 7200,
+      active: item.active !== false,
+    });
+  };
+
+  const startLaborEdit = (item) => {
+    setEditing('LaborRateProfile', item.id);
+    setLaborForm({
+      name: item.name || '',
+      role: item.role || 'operador',
+      internal_hour_cost: item.internal_hour_cost ?? '',
+      sale_hour_price: item.sale_hour_price ?? '',
+      active: item.active !== false,
+    });
+  };
+
+  const startServiceEdit = (item) => {
+    setEditing('ServicePricingProfile', item.id);
+    setServiceForm({
+      name: item.name || '',
+      service_type: item.service_type || 'gravacao',
+      default_machine_minutes: item.default_machine_minutes ?? 0,
+      default_labor_minutes: item.default_labor_minutes ?? 0,
+      setup_fee: item.setup_fee ?? 0,
+      sale_price: item.sale_price ?? 0,
+      notes: item.notes || '',
+      active: item.active !== false,
+    });
+  };
+
+  const startRuleEdit = (item) => {
+    setEditing('MarkupRule', item.id);
+    setRuleForm({
+      name: item.name || '',
+      product_group: item.product_group || 'outros',
+      minimum_margin_pct: item.minimum_margin_pct ?? 20,
+      target_margin_pct: item.target_margin_pct ?? 35,
+      active: item.active !== false,
+    });
+  };
+
+  const startMaterialEdit = (item) => {
+    setEditing('MaterialParameter', item.id);
+    setMaterialForm({
+      name: item.name || '',
+      material_type: item.material_type || 'Acrilico',
+      pricing_mode: item.pricing_mode || 'unitario',
+      unit: item.unit || (item.pricing_mode === 'area_m2' ? 'm2' : 'un'),
+      sheet_width_mm: item.sheet_width_mm ?? '',
+      sheet_height_mm: item.sheet_height_mm ?? '',
+      sheet_cost: item.sheet_cost ?? '',
+      cost_per_m2: item.cost_per_m2 ?? '',
+      sale_price_per_m2: item.sale_price_per_m2 ?? '',
+      unit_cost: item.unit_cost ?? '',
+      sale_price: item.sale_price ?? '',
+      waste_pct: item.waste_pct ?? 12,
+      active: item.active !== false,
+      notes: item.notes || '',
+    });
   };
 
   const saveMaterial = () => {
@@ -353,22 +493,25 @@ export default function Precificacao() {
       sale_price: numberOrZero(materialForm.sale_price),
       waste_pct: numberOrZero(materialForm.waste_pct),
     };
-    createMutation.mutate({ entity: 'MaterialParameter', data: payload });
-    setMaterialForm({ name: '', material_type: 'Acrilico', pricing_mode: 'area_m2', unit: 'm2', sheet_width_mm: '', sheet_height_mm: '', sheet_cost: '', cost_per_m2: '', sale_price_per_m2: '', unit_cost: '', sale_price: '', waste_pct: 12, active: true, notes: '' });
+    save('MaterialParameter', payload, resetMaterialForm);
   };
 
-  const activeExpenses = fixedExpenses.data.filter((item) => item.active !== false);
-  const totalMachineSale = context.machineProfiles.reduce((sum, item) => sum + getMachineRate(item, context).sale_minute_price, 0);
-  const avgMachineSale = context.machineProfiles.length ? totalMachineSale / context.machineProfiles.length : 0;
-  const totalLaborSale = context.laborProfiles.reduce((sum, item) => sum + getLaborRate(item, context).sale_hour_price, 0);
-  const avgLaborSale = context.laborProfiles.length ? totalLaborSale / context.laborProfiles.length : 0;
-  const materialCount = materialParameters.data.filter((item) => item.active !== false).length;
-  const productsWithoutMaterial = products.data.filter((product) => {
+  const activeExpenses = useMemo(() => fixedExpenses.data.filter((item) => item.active !== false), [fixedExpenses.data]);
+  const { avgMachineSale, avgLaborSale } = useMemo(() => {
+    const totalMachine = context.machineProfiles.reduce((sum, item) => sum + getMachineRate(item, context).sale_minute_price, 0);
+    const totalLabor = context.laborProfiles.reduce((sum, item) => sum + getLaborRate(item, context).sale_hour_price, 0);
+    return {
+      avgMachineSale: context.machineProfiles.length ? totalMachine / context.machineProfiles.length : 0,
+      avgLaborSale: context.laborProfiles.length ? totalLabor / context.laborProfiles.length : 0,
+    };
+  }, [context]);
+  const materialCount = useMemo(() => materialParameters.data.filter((item) => item.active !== false).length, [materialParameters.data]);
+  const productsWithoutMaterial = useMemo(() => products.data.filter((product) => {
     const needsMaterialTable = product?.dimensions_required || product?.pricing_mode === 'area_m2' || Number(product?.price_per_m2 || 0) > 0;
     if (product?.active === false || !needsMaterialTable) return false;
     return !context.materialParameters.some((material) => String(material.product_id || '') === String(product.id) || String(material.name || '').toLowerCase() === String(product.name || '').toLowerCase());
-  });
-  const materialIssues = materialParameters.data.filter((item) => item.active !== false && item.pricing_mode === 'area_m2' && !Number(item.cost_per_m2 || 0) && !Number(item.sheet_cost || 0));
+  }), [products.data, context]);
+  const materialIssues = useMemo(() => materialParameters.data.filter((item) => item.active !== false && item.pricing_mode === 'area_m2' && !Number(item.cost_per_m2 || 0) && !Number(item.sheet_cost || 0)), [materialParameters.data]);
 
   return (
     <div className="space-y-6">
@@ -445,21 +588,40 @@ export default function Precificacao() {
         </section>
       )}
 
+      {activeTab === 'parametros' && (
+        <PricingSettingsSection key={pricingSettings.data[0]?.id || 'nova-configuracao'} record={pricingSettings.data[0]} userName={userName} />
+      )}
+
       {activeTab === 'despesas' && (
         <CrudSection
           title="Despesas da estrutura"
           description="Energia, aluguel, agua, internet, manutencao, contabilidade e qualquer custo necessario para a empresa existir."
           form={
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <Field label="Nome"><Input value={expenseForm.name} onChange={(e) => setExpenseForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-              <Field label="Categoria"><Input value={expenseForm.category} onChange={(e) => setExpenseForm((p) => ({ ...p, category: e.target.value }))} /></Field>
-              <Field label="Valor mensal"><Input type="number" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value || 0) }))} /></Field>
-              <Button type="button" className="self-end" onClick={() => save('FixedExpense', expenseForm, () => setExpenseForm({ name: '', category: 'estrutura', amount: '', active: true }))}><Plus className="h-4 w-4" /> Adicionar</Button>
+            <div className="space-y-3">
+              {editingIds.FixedExpense && <EditingNotice label={expenseForm.name} />}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <Field label="Nome"><Input value={expenseForm.name} onChange={(e) => setExpenseForm((p) => ({ ...p, name: e.target.value }))} /></Field>
+                <Field label="Categoria"><Input value={expenseForm.category} onChange={(e) => setExpenseForm((p) => ({ ...p, category: e.target.value }))} /></Field>
+                <Field label="Valor mensal"><Input type="number" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value || 0) }))} /></Field>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" onClick={() => save('FixedExpense', expenseForm, resetExpenseForm)}>
+                    {editingIds.FixedExpense ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingIds.FixedExpense ? 'Salvar' : 'Adicionar'}
+                  </Button>
+                  {editingIds.FixedExpense && <Button type="button" variant="outline" onClick={() => cancelEdit('FixedExpense', resetExpenseForm)}>Cancelar</Button>}
+                </div>
+              </div>
             </div>
           }
         >
           {fixedExpenses.data.length ? fixedExpenses.data.map((item) => (
-            <RowCard key={item.id} title={item.name || 'Despesa'} subtitle={item.category} metrics={[{ label: 'Valor mensal', value: money(item.amount) }]} onDelete={() => deleteMutation.mutate({ entity: 'FixedExpense', id: item.id })} />
+            <RowCard
+              key={item.id}
+              title={item.name || 'Despesa'}
+              subtitle={item.category}
+              metrics={[{ label: 'Valor mensal', value: money(item.amount) }]}
+              onEdit={() => startExpenseEdit(item)}
+              onDelete={() => deleteMutation.mutate({ entity: 'FixedExpense', id: item.id, record: item })}
+            />
           )) : <EmptyHint>Nenhuma despesa cadastrada. Instale a base inicial ou adicione as despesas reais da empresa.</EmptyHint>}
         </CrudSection>
       )}
@@ -469,19 +631,37 @@ export default function Precificacao() {
           title="Maquinas e equipamentos"
           description="Cada maquina precisa ter custo interno e preco comercial por minuto. O orcamento usa esta tabela automaticamente."
           form={
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              <Field label="Nome"><Input value={machineForm.name} onChange={(e) => setMachineForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-              <Field label="Tipo"><Input value={machineForm.machine_type} onChange={(e) => setMachineForm((p) => ({ ...p, machine_type: e.target.value }))} /></Field>
-              <Field label="Custo/min"><Input type="number" value={machineForm.internal_minute_cost} onChange={(e) => setMachineForm((p) => ({ ...p, internal_minute_cost: Number(e.target.value || 0) }))} /></Field>
-              <Field label="Venda/min"><Input type="number" value={machineForm.sale_minute_price} onChange={(e) => setMachineForm((p) => ({ ...p, sale_minute_price: Number(e.target.value || 0) }))} /></Field>
-              <Field label="Setup"><Input type="number" value={machineForm.setup_fee} onChange={(e) => setMachineForm((p) => ({ ...p, setup_fee: Number(e.target.value || 0) }))} /></Field>
-              <Button type="button" className="self-end" onClick={() => save('MachineCost', machineForm, () => setMachineForm({ name: '', machine_type: 'laser', internal_minute_cost: '', sale_minute_price: '', setup_fee: 0, monthly_total_cost: '', productive_minutes_month: 7200, active: true }))}><Plus className="h-4 w-4" /> Adicionar</Button>
+            <div className="space-y-3">
+              {editingIds.MachineCost && <EditingNotice label={machineForm.name} />}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                <Field label="Nome"><Input value={machineForm.name} onChange={(e) => setMachineForm((p) => ({ ...p, name: e.target.value }))} /></Field>
+                <Field label="Tipo"><Input value={machineForm.machine_type} onChange={(e) => setMachineForm((p) => ({ ...p, machine_type: e.target.value }))} /></Field>
+                <Field label="Custo/min"><Input type="number" value={machineForm.internal_minute_cost} onChange={(e) => setMachineForm((p) => ({ ...p, internal_minute_cost: Number(e.target.value || 0) }))} /></Field>
+                <Field label="Venda/min"><Input type="number" value={machineForm.sale_minute_price} onChange={(e) => setMachineForm((p) => ({ ...p, sale_minute_price: Number(e.target.value || 0) }))} /></Field>
+                <Field label="Setup"><Input type="number" value={machineForm.setup_fee} onChange={(e) => setMachineForm((p) => ({ ...p, setup_fee: Number(e.target.value || 0) }))} /></Field>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" onClick={() => save('MachineCost', machineForm, resetMachineForm)}>
+                    {editingIds.MachineCost ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingIds.MachineCost ? 'Salvar' : 'Adicionar'}
+                  </Button>
+                  {editingIds.MachineCost && <Button type="button" variant="outline" onClick={() => cancelEdit('MachineCost', resetMachineForm)}>Cancelar</Button>}
+                </div>
+              </div>
             </div>
           }
         >
           {context.machineProfiles.map((item) => {
             const rate = getMachineRate(item, context);
-            return <RowCard key={item.id} title={rate.name} subtitle={rate.machine_type} metrics={[{ label: 'Custo/min', value: money(rate.internal_minute_cost) }, { label: 'Venda/min', value: money(rate.sale_minute_price) }, { label: 'Overhead/min', value: money(rate.overhead_minute) }, { label: 'Setup', value: money(rate.setup_fee) }]} onDelete={item.id?.startsWith?.('machine-default') ? null : () => deleteMutation.mutate({ entity: 'MachineCost', id: item.id })} />;
+            const raw = machineCosts.data.find((row) => String(row.id) === String(item.id));
+            return (
+              <RowCard
+                key={item.id}
+                title={rate.name}
+                subtitle={rate.machine_type}
+                metrics={[{ label: 'Custo/min', value: money(rate.internal_minute_cost) }, { label: 'Venda/min', value: money(rate.sale_minute_price) }, { label: 'Overhead/min', value: money(rate.overhead_minute) }, { label: 'Setup', value: money(rate.setup_fee) }]}
+                onEdit={raw ? () => startMachineEdit(raw) : null}
+                onDelete={raw ? () => deleteMutation.mutate({ entity: 'MachineCost', id: raw.id, record: raw }) : null}
+              />
+            );
           })}
         </CrudSection>
       )}
@@ -491,18 +671,36 @@ export default function Precificacao() {
           title="Mao de obra e funcoes"
           description="Use funcoes reais: operador laser, designer, acabamento, instalador, atendimento. O sistema calcula custo/hora e preco/hora."
           form={
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-              <Field label="Nome"><Input value={laborForm.name} onChange={(e) => setLaborForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-              <Field label="Funcao"><Input value={laborForm.role} onChange={(e) => setLaborForm((p) => ({ ...p, role: e.target.value }))} /></Field>
-              <Field label="Custo/h"><Input type="number" value={laborForm.internal_hour_cost} onChange={(e) => setLaborForm((p) => ({ ...p, internal_hour_cost: Number(e.target.value || 0) }))} /></Field>
-              <Field label="Venda/h"><Input type="number" value={laborForm.sale_hour_price} onChange={(e) => setLaborForm((p) => ({ ...p, sale_hour_price: Number(e.target.value || 0) }))} /></Field>
-              <Button type="button" className="self-end" onClick={() => save('LaborRateProfile', laborForm, () => setLaborForm({ name: '', role: 'operador', internal_hour_cost: '', sale_hour_price: '', active: true }))}><Plus className="h-4 w-4" /> Adicionar</Button>
+            <div className="space-y-3">
+              {editingIds.LaborRateProfile && <EditingNotice label={laborForm.name} />}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                <Field label="Nome"><Input value={laborForm.name} onChange={(e) => setLaborForm((p) => ({ ...p, name: e.target.value }))} /></Field>
+                <Field label="Funcao"><Input value={laborForm.role} onChange={(e) => setLaborForm((p) => ({ ...p, role: e.target.value }))} /></Field>
+                <Field label="Custo/h"><Input type="number" value={laborForm.internal_hour_cost} onChange={(e) => setLaborForm((p) => ({ ...p, internal_hour_cost: Number(e.target.value || 0) }))} /></Field>
+                <Field label="Venda/h"><Input type="number" value={laborForm.sale_hour_price} onChange={(e) => setLaborForm((p) => ({ ...p, sale_hour_price: Number(e.target.value || 0) }))} /></Field>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" onClick={() => save('LaborRateProfile', laborForm, resetLaborForm)}>
+                    {editingIds.LaborRateProfile ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingIds.LaborRateProfile ? 'Salvar' : 'Adicionar'}
+                  </Button>
+                  {editingIds.LaborRateProfile && <Button type="button" variant="outline" onClick={() => cancelEdit('LaborRateProfile', resetLaborForm)}>Cancelar</Button>}
+                </div>
+              </div>
             </div>
           }
         >
           {context.laborProfiles.map((item) => {
             const rate = getLaborRate(item, context);
-            return <RowCard key={item.id} title={rate.name} subtitle={item.role} metrics={[{ label: 'Custo/h', value: money(rate.internal_hour_cost) }, { label: 'Venda/h', value: money(rate.sale_hour_price) }, { label: 'Overhead/h', value: money(rate.overhead_hour) }]} onDelete={item.id?.startsWith?.('labor-default') ? null : () => deleteMutation.mutate({ entity: 'LaborRateProfile', id: item.id })} />;
+            const raw = laborProfiles.data.find((row) => String(row.id) === String(item.id));
+            return (
+              <RowCard
+                key={item.id}
+                title={rate.name}
+                subtitle={item.role}
+                metrics={[{ label: 'Custo/h', value: money(rate.internal_hour_cost) }, { label: 'Venda/h', value: money(rate.sale_hour_price) }, { label: 'Overhead/h', value: money(rate.overhead_hour) }]}
+                onEdit={raw ? () => startLaborEdit(raw) : null}
+                onDelete={raw ? () => deleteMutation.mutate({ entity: 'LaborRateProfile', id: raw.id, record: raw }) : null}
+              />
+            );
           })}
         </CrudSection>
       )}
@@ -523,6 +721,8 @@ export default function Precificacao() {
                 </Button>
               </div>
 
+              {editingIds.MaterialParameter && <EditingNotice label={materialForm.name} />}
+
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
                 <Field label="Nome"><Input value={materialForm.name} onChange={(e) => setMaterialForm((p) => ({ ...p, name: e.target.value }))} /></Field>
                 <Field label="Tipo"><Input value={materialForm.material_type} onChange={(e) => setMaterialForm((p) => ({ ...p, material_type: e.target.value }))} /></Field>
@@ -537,7 +737,12 @@ export default function Precificacao() {
                 </Field>
                 <Field label="Unidade"><Input value={materialForm.unit} onChange={(e) => setMaterialForm((p) => ({ ...p, unit: e.target.value }))} /></Field>
                 <Field label="Perda %"><Input type="number" step="0.01" value={materialForm.waste_pct} onChange={(e) => setMaterialForm((p) => ({ ...p, waste_pct: e.target.value }))} /></Field>
-                <Button type="button" className="self-end" onClick={saveMaterial} disabled={!materialForm.name}><Plus className="h-4 w-4" /> Adicionar</Button>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" onClick={saveMaterial} disabled={!materialForm.name}>
+                    {editingIds.MaterialParameter ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingIds.MaterialParameter ? 'Salvar' : 'Adicionar'}
+                  </Button>
+                  {editingIds.MaterialParameter && <Button type="button" variant="outline" onClick={() => cancelEdit('MaterialParameter', resetMaterialForm)}>Cancelar</Button>}
+                </div>
               </div>
 
               {materialForm.pricing_mode === 'area_m2' ? (
@@ -582,7 +787,8 @@ export default function Precificacao() {
                   { label: 'Unidade', value: item.unit || 'un' },
                   { label: 'Perda', value: `${item.waste_pct || 0}%` },
                 ]}
-                onDelete={() => deleteMutation.mutate({ entity: 'MaterialParameter', id: item.id })}
+                onEdit={() => startMaterialEdit(item)}
+                onDelete={() => deleteMutation.mutate({ entity: 'MaterialParameter', id: item.id, record: item })}
               />
             );
           }) : <EmptyHint>Nenhum material governado ainda. Importe produtos do estoque ou cadastre chapas e itens unitarios manualmente.</EmptyHint>}
@@ -594,29 +800,47 @@ export default function Precificacao() {
           title="Perfis de servico"
           description="Modelos prontos para corte, gravacao, criacao de logo, acabamento, instalacao e entrega."
           form={
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              <Field label="Nome"><Input value={serviceForm.name} onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-              <Field label="Tipo">
-                <Select value={serviceForm.service_type} onValueChange={(value) => setServiceForm((p) => ({ ...p, service_type: value }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {['corte', 'gravacao', 'arte', 'acabamento', 'instalacao', 'frete'].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Min maquina"><Input type="number" value={serviceForm.default_machine_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, default_machine_minutes: Number(e.target.value || 0) }))} /></Field>
-              <Field label="Min MO"><Input type="number" value={serviceForm.default_labor_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, default_labor_minutes: Number(e.target.value || 0) }))} /></Field>
-              <Field label="Preco fixo"><Input type="number" value={serviceForm.sale_price} onChange={(e) => setServiceForm((p) => ({ ...p, sale_price: Number(e.target.value || 0) }))} /></Field>
-              <Button type="button" className="self-end" onClick={() => save('ServicePricingProfile', serviceForm, () => setServiceForm({ name: '', service_type: 'gravacao', default_machine_minutes: 0, default_labor_minutes: 0, setup_fee: 0, sale_price: 0, notes: '', active: true }))}><Plus className="h-4 w-4" /> Adicionar</Button>
-              <div className="md:col-span-3 xl:col-span-6">
-                <Field label="Observacao"><Textarea value={serviceForm.notes} onChange={(e) => setServiceForm((p) => ({ ...p, notes: e.target.value }))} /></Field>
+            <div className="space-y-3">
+              {editingIds.ServicePricingProfile && <EditingNotice label={serviceForm.name} />}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                <Field label="Nome"><Input value={serviceForm.name} onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))} /></Field>
+                <Field label="Tipo">
+                  <Select value={serviceForm.service_type} onValueChange={(value) => setServiceForm((p) => ({ ...p, service_type: value }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['corte', 'gravacao', 'arte', 'acabamento', 'instalacao', 'frete'].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Min maquina"><Input type="number" value={serviceForm.default_machine_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, default_machine_minutes: Number(e.target.value || 0) }))} /></Field>
+                <Field label="Min MO"><Input type="number" value={serviceForm.default_labor_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, default_labor_minutes: Number(e.target.value || 0) }))} /></Field>
+                <Field label="Preco fixo"><Input type="number" value={serviceForm.sale_price} onChange={(e) => setServiceForm((p) => ({ ...p, sale_price: Number(e.target.value || 0) }))} /></Field>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" onClick={() => save('ServicePricingProfile', serviceForm, resetServiceForm)}>
+                    {editingIds.ServicePricingProfile ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingIds.ServicePricingProfile ? 'Salvar' : 'Adicionar'}
+                  </Button>
+                  {editingIds.ServicePricingProfile && <Button type="button" variant="outline" onClick={() => cancelEdit('ServicePricingProfile', resetServiceForm)}>Cancelar</Button>}
+                </div>
+                <div className="md:col-span-3 xl:col-span-6">
+                  <Field label="Observacao"><Textarea value={serviceForm.notes} onChange={(e) => setServiceForm((p) => ({ ...p, notes: e.target.value }))} /></Field>
+                </div>
               </div>
             </div>
           }
         >
-          {context.serviceProfiles.map((item) => (
-            <RowCard key={item.id} title={item.name} subtitle={item.notes || item.service_type} metrics={[{ label: 'Tipo', value: item.service_type || 'servico' }, { label: 'Min maquina', value: item.default_machine_minutes || 0 }, { label: 'Min MO', value: item.default_labor_minutes || 0 }, { label: 'Preco fixo', value: money(item.sale_price) }]} onDelete={item.id?.startsWith?.('service-') ? null : () => deleteMutation.mutate({ entity: 'ServicePricingProfile', id: item.id })} />
-          ))}
+          {context.serviceProfiles.map((item) => {
+            const raw = serviceProfiles.data.find((row) => String(row.id) === String(item.id));
+            return (
+              <RowCard
+                key={item.id}
+                title={item.name}
+                subtitle={item.notes || item.service_type}
+                metrics={[{ label: 'Tipo', value: item.service_type || 'servico' }, { label: 'Min maquina', value: item.default_machine_minutes || 0 }, { label: 'Min MO', value: item.default_labor_minutes || 0 }, { label: 'Preco fixo', value: money(item.sale_price) }]}
+                onEdit={raw ? () => startServiceEdit(raw) : null}
+                onDelete={raw ? () => deleteMutation.mutate({ entity: 'ServicePricingProfile', id: raw.id, record: raw }) : null}
+              />
+            );
+          })}
         </CrudSection>
       )}
 
@@ -625,35 +849,44 @@ export default function Precificacao() {
           title="Regras de margem"
           description="Margem minima bloqueia prejuizo. Margem alvo sugere o preco ideal por grupo de produto."
           form={
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-              <Field label="Nome"><Input value={ruleForm.name} onChange={(e) => setRuleForm((p) => ({ ...p, name: e.target.value }))} /></Field>
-              <Field label="Grupo"><Input value={ruleForm.product_group} onChange={(e) => setRuleForm((p) => ({ ...p, product_group: e.target.value }))} /></Field>
-              <Field label="Margem minima %"><Input type="number" value={ruleForm.minimum_margin_pct} onChange={(e) => setRuleForm((p) => ({ ...p, minimum_margin_pct: Number(e.target.value || 0) }))} /></Field>
-              <Field label="Margem alvo %"><Input type="number" value={ruleForm.target_margin_pct} onChange={(e) => setRuleForm((p) => ({ ...p, target_margin_pct: Number(e.target.value || 0) }))} /></Field>
-              <Button type="button" className="self-end" onClick={() => save('MarkupRule', ruleForm, () => setRuleForm({ name: '', product_group: 'outros', minimum_margin_pct: 20, target_margin_pct: 35, active: true }))}><Plus className="h-4 w-4" /> Adicionar</Button>
+            <div className="space-y-3">
+              {editingIds.MarkupRule && <EditingNotice label={ruleForm.name} />}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                <Field label="Nome"><Input value={ruleForm.name} onChange={(e) => setRuleForm((p) => ({ ...p, name: e.target.value }))} /></Field>
+                <Field label="Grupo"><Input value={ruleForm.product_group} onChange={(e) => setRuleForm((p) => ({ ...p, product_group: e.target.value }))} /></Field>
+                <Field label="Margem minima %"><Input type="number" value={ruleForm.minimum_margin_pct} onChange={(e) => setRuleForm((p) => ({ ...p, minimum_margin_pct: Number(e.target.value || 0) }))} /></Field>
+                <Field label="Margem alvo %"><Input type="number" value={ruleForm.target_margin_pct} onChange={(e) => setRuleForm((p) => ({ ...p, target_margin_pct: Number(e.target.value || 0) }))} /></Field>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="button" onClick={() => save('MarkupRule', ruleForm, resetRuleForm)}>
+                    {editingIds.MarkupRule ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingIds.MarkupRule ? 'Salvar' : 'Adicionar'}
+                  </Button>
+                  {editingIds.MarkupRule && <Button type="button" variant="outline" onClick={() => cancelEdit('MarkupRule', resetRuleForm)}>Cancelar</Button>}
+                </div>
+              </div>
             </div>
           }
         >
-          {context.markupRules.length ? context.markupRules.map((item) => (
-            <RowCard key={item.id} title={item.name || item.product_group || 'Regra'} subtitle={item.product_group || item.material_type} metrics={[{ label: 'Minima', value: `${item.minimum_margin_pct || item.min_margin_pct || 20}%` }, { label: 'Alvo', value: `${item.target_margin_pct || item.margin_pct || 35}%` }]} onDelete={() => deleteMutation.mutate({ entity: 'MarkupRule', id: item.id })} />
-          )) : <EmptyHint>Nenhuma regra cadastrada. O sistema usa fallback de 20% minima e 35% alvo.</EmptyHint>}
+          {context.markupRules.length ? context.markupRules.map((item) => {
+            const raw = markupRules.data.find((row) => String(row.id) === String(item.id));
+            return (
+              <RowCard
+                key={item.id}
+                title={item.name || item.product_group || 'Regra'}
+                subtitle={item.product_group || item.material_type}
+                metrics={[{ label: 'Minima', value: `${item.minimum_margin_pct || item.min_margin_pct || 20}%` }, { label: 'Alvo', value: `${item.target_margin_pct || item.margin_pct || 35}%` }]}
+                onEdit={raw ? () => startRuleEdit(raw) : null}
+                onDelete={raw ? () => deleteMutation.mutate({ entity: 'MarkupRule', id: raw.id, record: raw }) : null}
+              />
+            );
+          }) : <EmptyHint>Nenhuma regra cadastrada. O sistema usa fallback de 20% minima e 35% alvo.</EmptyHint>}
         </CrudSection>
       )}
-    </div>
-  );
-}
 
-function CrudSection({ title, description, form, children }) {
-  return (
-    <section className="space-y-4">
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-lg font-black text-slate-900">{title}</h2>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
-        </div>
-        {form}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
+      {activeTab === 'cliente' && <ProductPriceRulesSection userName={userName} />}
+
+      {activeTab === 'volume' && <VolumePricingSection userName={userName} />}
+
+      {activeTab === 'historico' && <PriceChangeHistorySection />}
+    </div>
   );
 }

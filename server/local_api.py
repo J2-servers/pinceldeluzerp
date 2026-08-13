@@ -2,39 +2,95 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import json
+import math
 import mimetypes
 import os
 import re
 import shutil
+import socket
 import sqlite3
 import sys
+import threading
 import time
 import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import auth
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = Path(os.environ.get("PINCEL_LUZ_DB", ROOT / "database" / "pincel-luz-erp.sqlite"))
-UPLOAD_DIR = ROOT / "storage" / "uploads"
-BACKUP_DIR = ROOT / "storage" / "backups"
+UPLOAD_DIR = Path(os.environ.get("PINCEL_LUZ_UPLOAD_DIR", ROOT / "storage" / "uploads"))
+BACKUP_DIR = Path(os.environ.get("PINCEL_LUZ_BACKUP_DIR", ROOT / "storage" / "backups"))
 HOST = os.environ.get("PINCEL_LUZ_API_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PINCEL_LUZ_API_PORT", "8787"))
 ADMIN_PASSWORD = os.environ.get("PINCEL_LUZ_ADMIN_PASSWORD", "troque-esta-senha")
 API_TOKEN = os.environ.get("PINCEL_LUZ_API_TOKEN", "")
 DEFAULT_ALLOWED_ORIGINS = "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:8080,http://localhost:8080"
+# Entidades usadas pelo frontend que nao tem arquivo em erp-schema/entities/
+# (criadas dinamicamente em runtime: AuditLog interno, config/perfis de
+# precificacao e o log de mensagens do WhatsApp).
+EXTRA_ENTITIES_WITHOUT_SCHEMA = {
+    "LaborRateProfile", "PartnerContribution", "PartnerEquity",
+    "PricingSettings", "ServicePricingProfile", "WhatsAppMessageLog",
+}
+
+
+def load_known_entities() -> set[str]:
+    schema_dir = ROOT / "erp-schema" / "entities"
+    from_schema = {path.stem for path in schema_dir.glob("*.jsonc")} if schema_dir.exists() else set()
+    return from_schema | EXTRA_ENTITIES_WITHOUT_SCHEMA
+
+
+KNOWN_ENTITIES = load_known_entities()
+
+
+def assert_known_entity(entity_name: str) -> None:
+    if entity_name not in KNOWN_ENTITIES:
+        raise ValueError(f"Entidade desconhecida: {entity_name}")
+
 ALLOWED_ORIGINS_RAW = os.environ.get("PINCEL_LUZ_ALLOWED_ORIGINS", "").strip() or DEFAULT_ALLOWED_ORIGINS
 ALLOWED_ORIGINS = {
     origin.strip()
     for origin in ALLOWED_ORIGINS_RAW.split(",")
     if origin.strip()
 }
+
+ALLOWED_UPLOAD_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico", ".pdf"}
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15MB
+BACKUP_INTERVAL_SECONDS = int(os.environ.get("PINCEL_LUZ_BACKUP_INTERVAL_SECONDS", str(24 * 60 * 60)))
+BACKUP_RETENTION_COUNT = int(os.environ.get("PINCEL_LUZ_BACKUP_RETENTION_COUNT", "14"))
+BACKUP_SCHEDULER_CHECK_SECONDS = int(os.environ.get("PINCEL_LUZ_BACKUP_CHECK_SECONDS", str(60 * 60)))
+SCHEDULED_BACKUP_REASON = "scheduled-daily"
+SESSION_TTL_SECONDS = 12 * 60 * 60  # 12h, mesmo valor usado antes no client
+AUTH_EXEMPT_PATHS = {
+    "/api/local/health",
+    "/api/local/auth/status",
+    "/api/local/auth/bootstrap",
+    "/api/local/auth/login",
+}
+
+
+class ForbiddenError(Exception):
+    """Acao nao permitida dado o estado atual (mapeia para HTTP 403)."""
+
+
+def status_for_error(error: Exception) -> int:
+    if isinstance(error, ForbiddenError):
+        return 403
+    if isinstance(error, PermissionError):
+        return 401
+    if isinstance(error, ValueError):
+        return 400
+    return 500
 
 SYSTEM_FIELDS = {
     "id": "string",
@@ -107,6 +163,12 @@ def from_db_value(value: Any, json_type: str) -> Any:
     return value
 
 
+def _contains_ci(haystack: Any, needle: Any) -> int:
+    """Funcao SQL customizada: substring case-insensitive com dobra de
+    maiusculas/minusculas Unicode (SQLite LIKE so cobre ASCII)."""
+    return 1 if str(needle or "").lower() in str(haystack or "").lower() else 0
+
+
 def connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -114,8 +176,24 @@ def connect() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
+    conn.create_function("contains_ci", 2, _contains_ci)
     ensure_metadata(conn)
     return conn
+
+
+@contextmanager
+def db_connection():
+    """Como `with connect() as conn:`, mas fecha a conexao ao sair
+    (o context manager nativo do sqlite3 so faz commit/rollback)."""
+    conn = connect()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def ensure_metadata(conn: sqlite3.Connection) -> None:
@@ -144,6 +222,80 @@ def ensure_metadata(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS _sessions (
+          token TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL
+        )
+        """
+    )
+    try:
+        user_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", ("User",)).fetchone()
+        if user_table:
+            columns = {row["name"] for row in conn.execute('PRAGMA table_info("User")').fetchall()}
+            if "email" in columns:
+                conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS "ux_user_email" ON "User"("email")')
+    except sqlite3.Error as error:
+        # Best-effort: se ja existem e-mails duplicados num banco antigo, nao trava o boot.
+        print(f"Aviso: nao foi possivel garantir indice unico em User.email: {error}", file=sys.stderr)
+
+
+def create_session(conn: sqlite3.Connection, user_id: str) -> dict[str, Any]:
+    token = auth.generate_session_token()
+    created_at = now_iso()
+    expires_at = (datetime.now(timezone.utc) + timedelta(seconds=SESSION_TTL_SECONDS)).isoformat()
+    conn.execute(
+        "INSERT INTO _sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        (token, user_id, created_at, expires_at),
+    )
+    return {"token": token, "expires_at": expires_at}
+
+
+def delete_session(conn: sqlite3.Connection, token: str) -> None:
+    if token:
+        conn.execute("DELETE FROM _sessions WHERE token=?", (token,))
+
+
+def validate_session(conn: sqlite3.Connection, token: str) -> dict[str, Any] | None:
+    if not token:
+        return None
+    row = conn.execute("SELECT user_id, expires_at FROM _sessions WHERE token=?", (token,)).fetchone()
+    if not row:
+        return None
+    if row["expires_at"] < now_iso():
+        conn.execute("DELETE FROM _sessions WHERE token=?", (token,))
+        conn.commit()
+        return None
+    user = fetch_one_by_id(conn, "User", row["user_id"])
+    if not user or user.get("active") is False:
+        return None
+    return user
+
+
+def sanitize_user(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not row:
+        return None
+    clean = dict(row)
+    clean.pop("password_hash", None)
+    return clean
+
+
+def prepare_user_payload(payload: dict[str, Any], require_password: bool) -> dict[str, Any]:
+    clean = dict(payload)
+    clean.pop("password_hash", None)  # nunca aceito em texto/hash direto do cliente
+    password = clean.pop("password", None)
+    if password:
+        if len(str(password)) < 6:
+            raise ValueError("A senha precisa ter ao menos 6 caracteres.")
+        clean["password_hash"] = auth.hash_password(str(password))
+    elif require_password:
+        raise ValueError("Informe uma senha.")
+    if clean.get("email"):
+        clean["email"] = str(clean["email"]).strip().lower()
+    return clean
 
 
 def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
@@ -250,7 +402,8 @@ def sqlite_integrity(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"ok": False, "message": "Arquivo nao encontrado", "tables": 0, "rows": {}}
     try:
-        with sqlite3.connect(path) as conn:
+        conn = sqlite3.connect(path)
+        try:
             result = conn.execute("PRAGMA integrity_check").fetchone()
             message = result[0] if result else "sem resposta"
             tables = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
@@ -262,6 +415,8 @@ def sqlite_integrity(path: Path) -> dict[str, Any]:
                 except sqlite3.Error:
                     rows[table_name] = None
             return {"ok": message == "ok", "message": message, "tables": tables, "rows": rows}
+        finally:
+            conn.close()
     except sqlite3.Error as error:
         return {"ok": False, "message": str(error), "tables": 0, "rows": {}}
 
@@ -281,7 +436,7 @@ def audit_system_event(action: str, entity_name: str, entity_id: str, metadata: 
             "document_number": entity_id,
             "metadata": json.dumps(metadata or {}, ensure_ascii=False),
         }
-        with connect() as conn:
+        with db_connection() as conn:
             column_map = ensure_payload_columns(conn, "AuditLog", payload)
             fields = [field for field in payload if field in column_map]
             columns = [column_map[field]["column"] for field in fields]
@@ -332,10 +487,16 @@ def create_sqlite_backup(reason: str = "manual") -> dict[str, Any]:
         raise RuntimeError(f"Banco nao encontrado em {DB_PATH}")
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     target = BACKUP_DIR / f"pincel-luz-erp-{timestamp}.sqlite"
-    with sqlite3.connect(DB_PATH) as source:
+    source = sqlite3.connect(DB_PATH)
+    try:
         source.execute("PRAGMA wal_checkpoint(FULL)")
-        with sqlite3.connect(target) as destination:
+        destination = sqlite3.connect(target)
+        try:
             source.backup(destination)
+        finally:
+            destination.close()
+    finally:
+        source.close()
     integrity = sqlite_integrity(target)
     if not integrity["ok"]:
         target.unlink(missing_ok=True)
@@ -354,6 +515,43 @@ def create_sqlite_backup(reason: str = "manual") -> dict[str, Any]:
     return result
 
 
+def prune_scheduled_backups(keep: int = BACKUP_RETENTION_COUNT) -> None:
+    """Apaga backups agendados antigos alem dos `keep` mais recentes.
+    Nunca mexe em backups manuais ou de seguranca pre-restauracao."""
+    scheduled: list[Path] = []
+    for path in BACKUP_DIR.glob("*.sqlite"):
+        sidecar = path.with_suffix(path.suffix + ".json")
+        if not sidecar.exists():
+            continue
+        try:
+            manifest = json.loads(sidecar.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if str(manifest.get("reason", "")) == SCHEDULED_BACKUP_REASON:
+            scheduled.append(path)
+    scheduled.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    for stale in scheduled[keep:]:
+        stale.unlink(missing_ok=True)
+        stale.with_suffix(stale.suffix + ".json").unlink(missing_ok=True)
+
+
+def run_backup_scheduler() -> None:
+    """Thread daemon: garante um backup por dia (retendo os ultimos
+    BACKUP_RETENTION_COUNT agendados), sem depender de ninguem clicar em nada."""
+    while True:
+        try:
+            if DB_PATH.exists():
+                backups = list_sqlite_backups()
+                newest_at = datetime.fromisoformat(backups[0]["created_at"]) if backups else None
+                due = newest_at is None or (datetime.now(timezone.utc) - newest_at) >= timedelta(seconds=BACKUP_INTERVAL_SECONDS)
+                if due:
+                    create_sqlite_backup(SCHEDULED_BACKUP_REASON)
+                    prune_scheduled_backups()
+        except Exception as error:  # nunca deve derrubar a thread nem o servidor
+            print(f"Aviso: backup agendado falhou: {error}", file=sys.stderr)
+        time.sleep(BACKUP_SCHEDULER_CHECK_SECONDS)
+
+
 def resolve_backup_file(file_name: str) -> Path:
     candidate = (BACKUP_DIR / Path(file_name).name).resolve()
     root = BACKUP_DIR.resolve()
@@ -363,7 +561,7 @@ def resolve_backup_file(file_name: str) -> Path:
 
 
 def restore_sqlite_backup(file_name: str, password: str) -> dict[str, Any]:
-    if password != ADMIN_PASSWORD:
+    if not auth.constant_time_eq(password, ADMIN_PASSWORD):
         raise RuntimeError("Senha administrativa invalida")
     source = resolve_backup_file(file_name)
     integrity = sqlite_integrity(source)
@@ -386,7 +584,7 @@ def restore_sqlite_backup(file_name: str, password: str) -> dict[str, Any]:
 
 
 def download_sqlite_backup(file_name: str, password: str) -> dict[str, Any]:
-    if password != ADMIN_PASSWORD:
+    if not auth.constant_time_eq(password, ADMIN_PASSWORD):
         raise RuntimeError("Senha administrativa invalida")
     source = resolve_backup_file(file_name)
     integrity = sqlite_integrity(source)
@@ -456,8 +654,242 @@ def money_value(value: Any) -> float:
         return 0.0
 
 
+# ── Estoque: ajuste atomico com custo medio ponderado ────────────
+# Substitui o read-modify-write que o frontend fazia em JS (ler Product.quantity,
+# calcular e dar PATCH), que permitia dois usuarios venderem alem do estoque.
+
+STOCK_MOVEMENT_TYPES = {"entrada", "saida", "ajuste", "devolucao", "estorno"}
+STOCK_MOVEMENT_REASON_REQUIRED = {"ajuste", "devolucao"}
+STOCK_BULK_MAX_ITEMS = 50
+
+
+def require_stock_number(value: Any, field_name: str) -> float:
+    """Converte um campo numerico obrigatorio, rejeitando ausencia e lixo."""
+    if value is None or isinstance(value, bool):
+        raise ValueError(f"Campo {field_name} e obrigatorio e precisa ser numerico.")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"Campo {field_name} precisa ser numerico.") from error
+    if not math.isfinite(number):
+        raise ValueError(f"Campo {field_name} precisa ser um numero finito.")
+    return number
+
+
+def parse_stock_unit_cost(value: Any, field_name: str = "unit_cost") -> float | None:
+    if value is None or value == "":
+        return None
+    cost = require_stock_number(value, field_name)
+    if cost < 0:
+        raise ValueError(f"Campo {field_name} nao pode ser negativo.")
+    return cost
+
+
+def format_stock_quantity(value: float) -> str:
+    """10.0 -> '10', 1.25 -> '1.25' (mensagens de erro mais legiveis)."""
+    number = round(float(value), 4)
+    return str(int(number)) if number == int(number) else str(number)
+
+
+def parse_stock_movement_context(payload: dict[str, Any]) -> dict[str, str]:
+    """Valida movement_type/reason e resolve os campos comuns do movimento."""
+    movement_type = str(payload.get("movement_type") or "").strip().lower()
+    if movement_type not in STOCK_MOVEMENT_TYPES:
+        allowed = ", ".join(sorted(STOCK_MOVEMENT_TYPES))
+        raise ValueError(f"movement_type invalido. Use um destes: {allowed}.")
+    reason = str(payload.get("reason") or "").strip()
+    if movement_type in STOCK_MOVEMENT_REASON_REQUIRED and not reason:
+        raise ValueError(f"Informe o motivo (reason) para movimentos do tipo {movement_type}.")
+    return {
+        "movement_type": movement_type,
+        "reason": reason,
+        "reference_id": str(payload.get("reference_id") or "").strip(),
+        "user_name": str(payload.get("user_name") or "").strip(),
+        "date": str(payload.get("date") or "").strip() or datetime.now().strftime("%Y-%m-%d"),
+    }
+
+
+def plan_stock_adjustment(
+    conn: sqlite3.Connection,
+    product_id: str,
+    delta: float,
+    unit_cost: float | None,
+    movement_type: str,
+    name_in_errors: bool = False,
+) -> dict[str, Any]:
+    """Le o produto e calcula quantidade/custo resultantes, sem gravar nada.
+
+    Levanta ValueError quando o produto nao existe ou o saldo ficaria negativo.
+    Entradas com unit_cost recalculam o custo medio ponderado:
+    (qtd_atual * custo_atual + delta * unit_cost) / (qtd_atual + delta),
+    assumindo unit_cost como novo custo quando o saldo atual e zero/negativo."""
+    row = conn.execute(f'SELECT * FROM {q("Product")} WHERE id=?', (product_id,)).fetchone()
+    if not row:
+        raise ValueError(f"Produto nao encontrado: {product_id}." if name_in_errors else "Produto nao encontrado.")
+    product = row_to_dict(row, load_column_map(conn, "Product"))
+    current_quantity = float(product.get("quantity") or 0)
+    current_cost = float(product.get("cost_price") or 0)
+    new_quantity = current_quantity + delta
+    if new_quantity < 0:
+        available = format_stock_quantity(current_quantity)
+        requested = format_stock_quantity(abs(delta))
+        if name_in_errors:
+            raise ValueError(f"Estoque insuficiente para {product.get('name') or product_id}: disponivel {available}, solicitado {requested}.")
+        raise ValueError(f"Estoque insuficiente: disponivel {available}, solicitado {requested}.")
+    new_cost = current_cost
+    cost_changed = False
+    if movement_type == "entrada" and unit_cost is not None and unit_cost > 0 and delta > 0:
+        if current_quantity <= 0:
+            new_cost = round(unit_cost, 4)
+        else:
+            new_cost = round((current_quantity * current_cost + delta * unit_cost) / (current_quantity + delta), 4)
+        cost_changed = True
+    return {
+        "product": product,
+        "delta": delta,
+        "unit_cost": unit_cost,
+        "previous_quantity": current_quantity,
+        "new_quantity": new_quantity,
+        "previous_cost": current_cost,
+        "new_cost": new_cost,
+        "cost_changed": cost_changed,
+    }
+
+
+def apply_stock_adjustment(conn: sqlite3.Connection, plan: dict[str, Any], context: dict[str, str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Grava o novo saldo (e custo, quando recalculado) e insere o StockMovement
+    correspondente. Precisa rodar dentro da mesma transacao do plano."""
+    product = plan["product"]
+    timestamp = now_iso()
+    if plan["cost_changed"]:
+        conn.execute(
+            f'UPDATE {q("Product")} SET "quantity"=?, "cost_price"=?, "updated_date"=? WHERE "id"=?',
+            (plan["new_quantity"], plan["new_cost"], timestamp, product["id"]),
+        )
+    else:
+        conn.execute(
+            f'UPDATE {q("Product")} SET "quantity"=?, "updated_date"=? WHERE "id"=?',
+            (plan["new_quantity"], timestamp, product["id"]),
+        )
+    movement_payload: dict[str, Any] = {
+        "product_id": product["id"],
+        "product_name": product.get("name") or "",
+        "type": context["movement_type"],
+        "quantity": abs(plan["delta"]),
+        "reason": context["reason"],
+        "date": context["date"],
+        "previous_quantity": plan["previous_quantity"],
+        "new_quantity": plan["new_quantity"],
+        "previous_cost": plan["previous_cost"],
+        "reference_id": context["reference_id"],
+        "user_name": context["user_name"],
+    }
+    if plan["unit_cost"] is not None:
+        movement_payload["unit_cost"] = plan["unit_cost"]
+    if plan["cost_changed"]:
+        movement_payload["new_cost"] = plan["new_cost"]
+    movement = insert_local_record(conn, "StockMovement", movement_payload)
+    product_summary = {
+        "id": product["id"],
+        "name": product.get("name") or "",
+        "quantity": plan["new_quantity"],
+        "cost_price": plan["new_cost"] if plan["cost_changed"] else plan["previous_cost"],
+    }
+    return product_summary, movement
+
+
+def adjust_stock(payload: dict[str, Any]) -> dict[str, Any]:
+    """Ajuste atomico de estoque de um produto.
+
+    Toda a sequencia ler-validar-gravar roda numa unica transacao com lock de
+    escrita (BEGIN IMMEDIATE), entao duas baixas simultaneas nunca vendem alem
+    do saldo: a segunda espera o lock e revalida contra o saldo ja atualizado."""
+    if not isinstance(payload, dict):
+        raise ValueError("Payload precisa ser objeto JSON.")
+    product_id = str(payload.get("product_id") or "").strip()
+    if not product_id:
+        raise ValueError("Campo product_id e obrigatorio.")
+    delta = require_stock_number(payload.get("delta"), "delta")
+    if delta == 0:
+        raise ValueError("Campo delta precisa ser diferente de zero.")
+    unit_cost = parse_stock_unit_cost(payload.get("unit_cost"))
+    context = parse_stock_movement_context(payload)
+    with db_connection() as conn:
+        # BEGIN IMMEDIATE precisa ser o primeiro comando da conexao (antes de
+        # qualquer DML que abriria transacao implicita) para ja segurar o lock
+        # de escrita durante a leitura do saldo. O commit explicito abaixo
+        # encerra a transacao; o commit do db_connection() vira no-op.
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            ensure_payload_columns(conn, "Product", {"name": "", "quantity": 0.0, "cost_price": 0.0})
+            plan = plan_stock_adjustment(conn, product_id, delta, unit_cost, context["movement_type"])
+            product_summary, movement = apply_stock_adjustment(conn, plan, context)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    return {"product": product_summary, "movement": movement}
+
+
+def adjust_stock_bulk(payload: dict[str, Any]) -> dict[str, Any]:
+    """Versao em lote do adjust_stock: valida todos os itens e so entao aplica,
+    tudo na mesma transacao — ou tudo entra, ou nada entra.
+
+    Itens repetidos do mesmo produto tem os deltas somados (e o unit_cost
+    combinado por media ponderada dos proprios itens) antes de validar/aplicar,
+    gerando um unico StockMovement por produto."""
+    if not isinstance(payload, dict):
+        raise ValueError("Payload precisa ser objeto JSON.")
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        raise ValueError("Campo items precisa ser uma lista com ao menos 1 item.")
+    if len(raw_items) > STOCK_BULK_MAX_ITEMS:
+        raise ValueError(f"Campo items aceita no maximo {STOCK_BULK_MAX_ITEMS} itens por chamada.")
+    context = parse_stock_movement_context(payload)
+    merged: dict[str, dict[str, float]] = {}
+    ordered_ids: list[str] = []
+    for index, item in enumerate(raw_items, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Item {index} invalido: precisa ser um objeto.")
+        product_id = str(item.get("product_id") or "").strip()
+        if not product_id:
+            raise ValueError(f"Item {index} sem product_id.")
+        delta = require_stock_number(item.get("delta"), f"delta (item {index})")
+        if delta == 0:
+            raise ValueError(f"Item {index} com delta zero.")
+        unit_cost = parse_stock_unit_cost(item.get("unit_cost"), f"unit_cost (item {index})")
+        if product_id not in merged:
+            merged[product_id] = {"delta": 0.0, "costed_quantity": 0.0, "costed_total": 0.0}
+            ordered_ids.append(product_id)
+        entry = merged[product_id]
+        entry["delta"] += delta
+        if unit_cost is not None and unit_cost > 0 and delta > 0:
+            entry["costed_quantity"] += delta
+            entry["costed_total"] += delta * unit_cost
+    with db_connection() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            ensure_payload_columns(conn, "Product", {"name": "", "quantity": 0.0, "cost_price": 0.0})
+            plans: list[dict[str, Any]] = []
+            for product_id in ordered_ids:
+                entry = merged[product_id]
+                unit_cost = entry["costed_total"] / entry["costed_quantity"] if entry["costed_quantity"] > 0 else None
+                plans.append(plan_stock_adjustment(conn, product_id, entry["delta"], unit_cost, context["movement_type"], name_in_errors=True))
+            products: list[dict[str, Any]] = []
+            movements: list[dict[str, Any]] = []
+            for plan in plans:
+                product_summary, movement = apply_stock_adjustment(conn, plan, context)
+                products.append(product_summary)
+                movements.append(movement)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    return {"products": products, "movements": movements}
+
+
 def run_system_integrity_audit() -> dict[str, Any]:
-    with connect() as conn:
+    with db_connection() as conn:
         sales = fetch_all(conn, "SalesOrder")
         sales_items = fetch_all(conn, "SalesOrderItem")
         quotes = fetch_all(conn, "ProductQuote")
@@ -549,7 +981,7 @@ def run_system_integrity_audit() -> dict[str, Any]:
 def repair_system_integrity() -> dict[str, Any]:
     before = run_system_integrity_audit()
     fixed: list[dict[str, Any]] = []
-    with connect() as conn:
+    with db_connection() as conn:
         for finding in before["findings"]:
             if not finding.get("auto_fix"):
                 continue
@@ -658,41 +1090,85 @@ def find_existing_business_record(conn: sqlite3.Connection, entity_name: str, pa
     return None
 
 
-def compare_value(actual: Any, expected: Any) -> bool:
-    if isinstance(expected, dict):
-        for operator, value in expected.items():
-            if operator == "$ne" and actual == value:
-                return False
-            if operator == "$in" and (not isinstance(value, list) or actual not in value):
-                return False
-            if operator == "$nin" and isinstance(value, list) and actual in value:
-                return False
-            if operator == "$gt" and not (actual is not None and actual > value):
-                return False
-            if operator == "$gte" and not (actual is not None and actual >= value):
-                return False
-            if operator == "$lt" and not (actual is not None and actual < value):
-                return False
-            if operator == "$lte" and not (actual is not None and actual <= value):
-                return False
-            if operator == "$contains" and str(value or "").lower() not in str(actual or "").lower():
-                return False
-        return True
-    if isinstance(expected, list):
-        return actual in expected
-    return actual == expected
+def _filter_column(field: str, column_map: dict[str, dict[str, str]]) -> str | None:
+    """Nome de coluna SQL (citado) para um campo de filtro, ou None se a
+    coluna nunca foi criada (nenhum registro jamais teve esse campo)."""
+    info = column_map.get(field)
+    return q(info["column"]) if info else None
 
 
-def matches_filter(row: dict[str, Any], filters: dict[str, Any]) -> bool:
-    return all(compare_value(row.get(key), expected) for key, expected in filters.items())
+def _where_for_operator(column: str, operator: str, value: Any) -> tuple[str, list[Any]] | None:
+    """Traduz um operador de filtro (`$ne`, `$in`, ...) para SQL parametrizado.
+    Retorna None quando o operador nao restringe nada (equivalente a sempre-verdadeiro)."""
+    if operator == "$ne":
+        return f"{column} IS NOT ?", [to_db_value(value)]
+    if operator == "$in":
+        values = value if isinstance(value, list) else []
+        if not values:
+            return "0", []
+        return f"{column} IN ({', '.join('?' for _ in values)})", [to_db_value(v) for v in values]
+    if operator == "$nin":
+        values = value if isinstance(value, list) else []
+        if not values:
+            return None
+        return f"({column} IS NULL OR {column} NOT IN ({', '.join('?' for _ in values)}))", [to_db_value(v) for v in values]
+    if operator == "$gt":
+        return f"{column} > ?", [to_db_value(value)]
+    if operator == "$gte":
+        return f"{column} >= ?", [to_db_value(value)]
+    if operator == "$lt":
+        return f"{column} < ?", [to_db_value(value)]
+    if operator == "$lte":
+        return f"{column} <= ?", [to_db_value(value)]
+    if operator == "$contains":
+        return f"contains_ci({column}, ?) = 1", [str(value or "")]
+    return None
 
 
-def sort_rows(rows: list[dict[str, Any]], sort: str | None) -> list[dict[str, Any]]:
+def build_where_clause(filters: dict[str, Any], column_map: dict[str, dict[str, str]]) -> tuple[str, list[Any]]:
+    """Monta a clausula WHERE parametrizada equivalente ao antigo `matches_filter`
+    (rodava em Python, sobre a tabela inteira ja carregada em memoria)."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    for field, expected in filters.items():
+        column = _filter_column(field, column_map)
+        if isinstance(expected, dict):
+            for operator, value in expected.items():
+                if column is None:
+                    # Campo nunca existiu em nenhum registro: $ne/$nin sempre passam
+                    # (nada e igual a "nunca setado"); os demais nunca combinam.
+                    if operator in {"$ne", "$nin"}:
+                        continue
+                    clauses.append("0")
+                    continue
+                result = _where_for_operator(column, operator, value)
+                if result is not None:
+                    clause_sql, clause_params = result
+                    clauses.append(clause_sql)
+                    params.extend(clause_params)
+            continue
+        if column is None:
+            clauses.append("0")
+            continue
+        if isinstance(expected, list):
+            if not expected:
+                clauses.append("0")
+            else:
+                clauses.append(f"{column} IN ({', '.join('?' for _ in expected)})")
+                params.extend(to_db_value(v) for v in expected)
+            continue
+        clauses.append(f"{column} = ?")
+        params.append(to_db_value(expected))
+    return " AND ".join(clauses), params
+
+
+def build_order_by(sort: str | None, column_map: dict[str, dict[str, str]]) -> str:
     if not sort:
-        return rows
+        return ""
     descending = sort.startswith("-")
     field = sort[1:] if descending else sort
-    return sorted(rows, key=lambda item: str(item.get(field) or ""), reverse=descending)
+    column = _filter_column(field, column_map) or q(safe_name(field))
+    return f"ORDER BY {column} {'DESC' if descending else 'ASC'}"
 
 
 def parse_json_body(handler: BaseHTTPRequestHandler) -> Any:
@@ -703,7 +1179,28 @@ def parse_json_body(handler: BaseHTTPRequestHandler) -> Any:
     return json.loads(raw.decode("utf-8") or "{}")
 
 
+def assert_public_host(url: str) -> None:
+    """Bloqueia SSRF: recusa URLs que resolvem para IP privado/loopback/link-local.
+    Usado antes de qualquer requisicao de saida com host vindo do cliente
+    (ex.: apiUrl da Evolution API, testado pelo usuario antes de salvar)."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("URL da API precisa comecar com http:// ou https://.")
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL da API invalida.")
+    try:
+        resolved = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as error:
+        raise ValueError(f"Nao foi possivel resolver o host da API: {hostname}") from error
+    for _family, _kind, _proto, _canon, sockaddr in resolved:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            raise ValueError(f"Host da API nao permitido (endereco de rede interna): {hostname}")
+
+
 def call_json_api(url: str, api_key: str, method: str = "GET", body: Any = None) -> dict[str, Any]:
+    assert_public_host(url)
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["apikey"] = api_key
@@ -754,9 +1251,9 @@ def evolution_send_text(payload: dict[str, Any]) -> dict[str, Any]:
 
 def purge_whatsapp_message_logs(payload: dict[str, Any]) -> dict[str, Any]:
     password = str(payload.get("password") or "")
-    if password != ADMIN_PASSWORD:
+    if not auth.constant_time_eq(password, ADMIN_PASSWORD):
         raise PermissionError("Senha invalida para limpar historico de mensagens.")
-    with connect() as conn:
+    with db_connection() as conn:
         ensure_entity_table(conn, "WhatsAppMessageLog")
         deleted = conn.execute('DELETE FROM "WhatsAppMessageLog"').rowcount
         conn.commit()
@@ -858,6 +1355,99 @@ def evolution_qr_connection(payload: dict[str, Any]) -> dict[str, Any]:
     raise ValueError("Acao invalida")
 
 
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def auth_status() -> dict[str, Any]:
+    with db_connection() as conn:
+        ensure_entity_table(conn, "User")
+        total = conn.execute('SELECT COUNT(*) AS total FROM "User"').fetchone()["total"]
+    return {"hasUsers": bool(total)}
+
+
+def auth_bootstrap(payload: dict[str, Any]) -> dict[str, Any]:
+    name = str(payload.get("name") or "").strip()
+    email = str(payload.get("email") or "").strip().lower()
+    password = str(payload.get("password") or "")
+    if not name:
+        raise ValueError("Informe o nome.")
+    if not EMAIL_RE.match(email):
+        raise ValueError("E-mail invalido.")
+    if len(password) < 6:
+        raise ValueError("A senha precisa ter ao menos 6 caracteres.")
+    with db_connection() as conn:
+        ensure_entity_table(conn, "User")
+        existing = conn.execute('SELECT COUNT(*) AS total FROM "User"').fetchone()["total"]
+        if existing:
+            raise ForbiddenError("Ja existe um usuario cadastrado.")
+        timestamp = now_iso()
+        user = {
+            "id": f"User_{int(time.time() * 1000)}_{os.urandom(3).hex()}",
+            "created_date": timestamp,
+            "updated_date": timestamp,
+            "name": name,
+            "email": email,
+            "password_hash": auth.hash_password(password),
+            "role": "admin",
+            "active": True,
+            "must_change_password": False,
+            "last_login": timestamp,
+        }
+        column_map = ensure_payload_columns(conn, "User", user)
+        fields = [field for field in user if field in column_map]
+        columns = [column_map[field]["column"] for field in fields]
+        placeholders = ", ".join("?" for _ in columns)
+        conn.execute(
+            f'INSERT INTO {q("User")} ({", ".join(q(column) for column in columns)}) VALUES ({placeholders})',
+            [to_db_value(user[field]) for field in fields],
+        )
+        session = create_session(conn, user["id"])
+    return {"token": session["token"], "user": sanitize_user(user)}
+
+
+def auth_login(payload: dict[str, Any]) -> dict[str, Any]:
+    email = str(payload.get("email") or "").strip().lower()
+    password = str(payload.get("password") or "")
+    if not email or not password:
+        raise ValueError("Informe e-mail e senha.")
+    with db_connection() as conn:
+        ensure_entity_table(conn, "User")
+        existing_columns = {row["name"] for row in conn.execute('PRAGMA table_info("User")').fetchall()}
+        user = None
+        if "email" in existing_columns:
+            column_map = load_column_map(conn, "User")
+            row = conn.execute(f'SELECT * FROM {q("User")} WHERE "email"=?', (email,)).fetchone()
+            user = row_to_dict(row, column_map) if row else None
+        if not user or not auth.verify_password(password, user.get("password_hash")):
+            raise PermissionError("E-mail ou senha incorretos.")
+        if user.get("active") is False:
+            raise PermissionError("Usuario desativado. Procure um administrador.")
+        timestamp = now_iso()
+        conn.execute(f'UPDATE {q("User")} SET "updated_date"=?, "last_login"=? WHERE "id"=?', (timestamp, timestamp, user["id"]))
+        session = create_session(conn, user["id"])
+        user["last_login"] = timestamp
+    return {"token": session["token"], "user": sanitize_user(user)}
+
+
+def auth_change_password(session_user: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    current_password = str(payload.get("currentPassword") or "")
+    new_password = str(payload.get("newPassword") or "")
+    if len(new_password) < 6:
+        raise ValueError("A nova senha precisa ter ao menos 6 caracteres.")
+    with db_connection() as conn:
+        row = conn.execute(f'SELECT * FROM {q("User")} WHERE "id"=?', (session_user["id"],)).fetchone()
+        user = row_to_dict(row, load_column_map(conn, "User")) if row else None
+        if not user or not auth.verify_password(current_password, user.get("password_hash")):
+            raise PermissionError("Senha atual incorreta.")
+        new_hash = auth.hash_password(new_password)
+        timestamp = now_iso()
+        conn.execute(
+            f'UPDATE {q("User")} SET "password_hash"=?, "must_change_password"=?, "updated_date"=? WHERE "id"=?',
+            (new_hash, 0, timestamp, session_user["id"]),
+        )
+    return {"success": True}
+
+
 class LocalHandler(BaseHTTPRequestHandler):
     server_version = "PincelLuzLocalSQLite/1.0"
 
@@ -868,18 +1458,36 @@ class LocalHandler(BaseHTTPRequestHandler):
         return "*" in ALLOWED_ORIGINS or origin in ALLOWED_ORIGINS
 
     def is_authorized(self) -> bool:
+        """Camada opcional adicional (defesa em profundidade): so importa
+        se PINCEL_LUZ_API_TOKEN estiver configurado. A autenticacao real
+        e a sessao validada em `guard_request`."""
         if not API_TOKEN:
             return True
         return self.headers.get("X-Pincel-Luz-Api-Key", "") == API_TOKEN
 
+    def session_token_from_headers(self) -> str:
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            return auth_header[7:].strip()
+        return ""
+
     def guard_request(self, parsed: urllib.parse.ParseResult) -> bool:
+        self.session_user = None
         if not self.is_allowed_origin():
             self.send_error_json("Origem nao autorizada para acessar a API local.", 403)
             return False
-        if parsed.path == "/api/local/health" or parsed.path.startswith("/uploads/"):
+        if parsed.path in AUTH_EXEMPT_PATHS or parsed.path == "/api/local/auth/logout" or parsed.path.startswith("/uploads/"):
             return True
-        if parsed.path.startswith("/api/local/") and not self.is_authorized():
+        if not parsed.path.startswith("/api/local/"):
+            return True
+        if not self.is_authorized():
             self.send_error_json("Chave da API local ausente ou invalida.", 401)
+            return False
+        token = self.session_token_from_headers()
+        with db_connection() as conn:
+            self.session_user = validate_session(conn, token)
+        if not self.session_user:
+            self.send_error_json("Sessao invalida ou expirada. Faca login novamente.", 401)
             return False
         return True
 
@@ -893,7 +1501,7 @@ class LocalHandler(BaseHTTPRequestHandler):
         elif origin and origin in ALLOWED_ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Pincel-Luz-Api-Key")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Pincel-Luz-Api-Key, Authorization")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
@@ -921,7 +1529,7 @@ class LocalHandler(BaseHTTPRequestHandler):
             if not self.guard_request(parsed):
                 return
             if parsed.path == "/api/local/health":
-                with connect() as conn:
+                with db_connection() as conn:
                     count = conn.execute("SELECT COUNT(*) AS total FROM _meta_tables").fetchone()["total"]
                 self.send_json({"ok": True, "db": str(DB_PATH), "tables": count})
                 return
@@ -933,13 +1541,29 @@ class LocalHandler(BaseHTTPRequestHandler):
                 self.send_error_json("Backups sao protegidos. Use a area Dados locais com senha administrativa.", 403)
                 return
 
+            if parsed.path == "/api/local/auth/status":
+                self.send_json({"data": auth_status()})
+                return
+
+            if parsed.path == "/api/local/auth/me":
+                if not self.session_user:
+                    self.send_error_json("Sessao invalida ou expirada.", 401)
+                    return
+                self.send_json({"data": sanitize_user(self.session_user)})
+                return
+
             if len(parts) == 4 and parts[:3] == ["api", "local", "entities"]:
                 self.handle_list(parts[3], urllib.parse.parse_qs(parsed.query))
                 return
 
             self.send_error_json("Rota nao encontrada", 404)
         except Exception as error:
-            self.send_error_json(str(error), 500)
+            status = status_for_error(error)
+            if status == 500:
+                traceback.print_exc()
+                self.send_error_json("Erro interno no servidor.", 500)
+            else:
+                self.send_error_json(str(error), status)
 
     def do_POST(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -949,6 +1573,30 @@ class LocalHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/api/local/uploads":
                 self.handle_upload()
+                return
+
+            if parsed.path == "/api/local/auth/bootstrap":
+                self.send_json({"data": auth_bootstrap(parse_json_body(self))}, 201)
+                return
+
+            if parsed.path == "/api/local/auth/login":
+                self.send_json({"data": auth_login(parse_json_body(self))})
+                return
+
+            if parsed.path == "/api/local/auth/logout":
+                payload = parse_json_body(self)
+                token = str(payload.get("token") or self.session_token_from_headers())
+                if token:
+                    with db_connection() as conn:
+                        delete_session(conn, token)
+                self.send_json({"data": {"success": True}})
+                return
+
+            if parsed.path == "/api/local/auth/change-password":
+                if not self.session_user:
+                    self.send_error_json("Sessao invalida ou expirada.", 401)
+                    return
+                self.send_json({"data": auth_change_password(self.session_user, parse_json_body(self))})
                 return
 
             if len(parts) == 3 and parts == ["api", "local", "functions"]:
@@ -966,7 +1614,12 @@ class LocalHandler(BaseHTTPRequestHandler):
 
             self.send_error_json("Rota nao encontrada", 404)
         except Exception as error:
-            self.send_error_json(str(error), 500)
+            status = status_for_error(error)
+            if status == 500:
+                traceback.print_exc()
+                self.send_error_json("Erro interno no servidor.", 500)
+            else:
+                self.send_error_json(str(error), status)
 
     def do_PATCH(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -979,7 +1632,12 @@ class LocalHandler(BaseHTTPRequestHandler):
                 return
             self.send_error_json("Rota nao encontrada", 404)
         except Exception as error:
-            self.send_error_json(str(error), 500)
+            status = status_for_error(error)
+            if status == 500:
+                traceback.print_exc()
+                self.send_error_json("Erro interno no servidor.", 500)
+            else:
+                self.send_error_json(str(error), status)
 
     def do_DELETE(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -992,43 +1650,68 @@ class LocalHandler(BaseHTTPRequestHandler):
                 return
             self.send_error_json("Rota nao encontrada", 404)
         except Exception as error:
-            self.send_error_json(str(error), 500)
+            status = status_for_error(error)
+            if status == 500:
+                traceback.print_exc()
+                self.send_error_json("Erro interno no servidor.", 500)
+            else:
+                self.send_error_json(str(error), status)
 
     def handle_list(self, entity_name: str, query: dict[str, list[str]]) -> None:
+        assert_known_entity(entity_name)
         filters = json.loads(query.get("filter", ["{}"])[0] or "{}")
         sort = query.get("sort", [None])[0]
         limit = int(query.get("limit", ["0"])[0] or 0)
         skip = int(query.get("skip", ["0"])[0] or 0)
-        with connect() as conn:
+        with db_connection() as conn:
             ensure_entity_table(conn, entity_name)
             column_map = load_column_map(conn, entity_name)
-            rows = [
-                row_to_dict(row, column_map)
-                for row in conn.execute(f"SELECT * FROM {q(entity_name)}").fetchall()
-            ]
-        rows = [row for row in rows if matches_filter(row, filters)]
-        rows = sort_rows(rows, sort)
-        if skip:
-            rows = rows[skip:]
-        if limit:
-            rows = rows[:limit]
-        self.send_json({"data": rows})
+            where_sql, where_params = build_where_clause(filters, column_map)
+            select_sql = f"SELECT * FROM {q(entity_name)}"
+            count_sql = f"SELECT COUNT(*) FROM {q(entity_name)}"
+            if where_sql:
+                select_sql += f" WHERE {where_sql}"
+                count_sql += f" WHERE {where_sql}"
+            total = conn.execute(count_sql, where_params).fetchone()[0]
+            order_sql = build_order_by(sort, column_map)
+            if order_sql:
+                select_sql += f" {order_sql}"
+            params = list(where_params)
+            if limit or skip:
+                select_sql += " LIMIT ? OFFSET ?"
+                params.append(limit if limit else -1)
+                params.append(skip or 0)
+            rows = [row_to_dict(row, column_map) for row in conn.execute(select_sql, params).fetchall()]
+        if entity_name == "User":
+            rows = [sanitize_user(row) for row in rows]
+        self.send_json({"data": rows, "total": total})
 
     def handle_create(self, entity_name: str) -> None:
+        assert_known_entity(entity_name)
+        if entity_name == "User" and not (self.session_user and self.session_user.get("role") == "admin"):
+            self.send_error_json("Apenas administradores podem criar usuarios.", 403)
+            return
         payload = parse_json_body(self)
         if not isinstance(payload, dict):
             self.send_error_json("Payload precisa ser objeto JSON", 400)
             return
         timestamp = now_iso()
         payload = dict(payload)
+        if entity_name == "User":
+            payload = prepare_user_payload(payload, require_password=True)
         payload.setdefault("id", f"{entity_name}_{int(time.time() * 1000)}_{os.urandom(3).hex()}")
         payload.setdefault("created_date", timestamp)
         payload["updated_date"] = timestamp
         validate_business_payload(entity_name, payload)
-        with connect() as conn:
+        with db_connection() as conn:
+            if entity_name == "User" and payload.get("email"):
+                ensure_entity_table(conn, "User")
+                duplicate = conn.execute('SELECT "id" FROM "User" WHERE "email"=?', (payload["email"],)).fetchone()
+                if duplicate:
+                    raise ValueError("Ja existe um usuario com este e-mail.")
             existing = find_existing_business_record(conn, entity_name, payload)
             if existing:
-                self.send_json({"data": existing}, 200)
+                self.send_json({"data": sanitize_user(existing) if entity_name == "User" else existing}, 200)
                 return
             column_map = ensure_payload_columns(conn, entity_name, payload)
             fields = [field for field in payload if field in column_map]
@@ -1039,9 +1722,13 @@ class LocalHandler(BaseHTTPRequestHandler):
                 [to_db_value(payload[field]) for field in fields],
             )
             conn.commit()
-        self.send_json({"data": payload}, 201)
+        self.send_json({"data": sanitize_user(payload) if entity_name == "User" else payload}, 201)
 
     def handle_bulk_create(self, entity_name: str) -> None:
+        assert_known_entity(entity_name)
+        if entity_name == "User":
+            self.send_error_json("Criacao em lote nao e permitida para usuarios.", 403)
+            return
         payload = parse_json_body(self)
         items = payload if isinstance(payload, list) else payload.get("items", [])
         if not isinstance(items, list):
@@ -1060,7 +1747,7 @@ class LocalHandler(BaseHTTPRequestHandler):
         record.setdefault("created_date", timestamp)
         record["updated_date"] = timestamp
         validate_business_payload(entity_name, record)
-        with connect() as conn:
+        with db_connection() as conn:
             existing = find_existing_business_record(conn, entity_name, record)
             if existing:
                 return existing
@@ -1076,14 +1763,24 @@ class LocalHandler(BaseHTTPRequestHandler):
         return record
 
     def handle_update(self, entity_name: str, record_id: str) -> None:
+        assert_known_entity(entity_name)
         payload = parse_json_body(self)
         if not isinstance(payload, dict):
             self.send_error_json("Payload precisa ser objeto JSON", 400)
             return
         payload = dict(payload)
+        if entity_name == "User":
+            is_admin = bool(self.session_user and self.session_user.get("role") == "admin")
+            is_self = bool(self.session_user and self.session_user.get("id") == record_id)
+            if not is_admin and not is_self:
+                self.send_error_json("Sem permissao para alterar este usuario.", 403)
+                return
+            payload = prepare_user_payload(payload, require_password=False)
+            if not is_admin:
+                payload = {key: value for key, value in payload.items() if key in {"name", "email", "password_hash"}}
         payload["id"] = record_id
         payload["updated_date"] = now_iso()
-        with connect() as conn:
+        with db_connection() as conn:
             current_row = None
             if table_exists(conn, entity_name):
                 current_row = conn.execute(f"SELECT * FROM {q(entity_name)} WHERE id=?", (record_id,)).fetchone()
@@ -1100,13 +1797,31 @@ class LocalHandler(BaseHTTPRequestHandler):
                 self.send_error_json(f"{entity_name} nao encontrado: {record_id}", 404)
                 return
             row = conn.execute(f"SELECT * FROM {q(entity_name)} WHERE id=?", (record_id,)).fetchone()
-            self.send_json({"data": row_to_dict(row, load_column_map(conn, entity_name))})
+            result = row_to_dict(row, load_column_map(conn, entity_name))
+            self.send_json({"data": sanitize_user(result) if entity_name == "User" else result})
 
     def handle_delete(self, entity_name: str, record_id: str) -> None:
+        assert_known_entity(entity_name)
         if entity_name == "WhatsAppMessageLog":
             self.send_error_json("Historico de mensagens protegido. Use a funcao protegida por senha.", 403)
             return
-        with connect() as conn:
+        if entity_name == "User":
+            if not (self.session_user and self.session_user.get("role") == "admin"):
+                self.send_error_json("Apenas administradores podem excluir usuarios.", 403)
+                return
+            if self.session_user.get("id") == record_id:
+                self.send_error_json("Voce nao pode excluir o proprio usuario.", 400)
+                return
+            with db_connection() as conn:
+                ensure_entity_table(conn, "User")
+                column_map = load_column_map(conn, "User")
+                rows = [row_to_dict(row, column_map) for row in conn.execute(f'SELECT * FROM {q("User")}').fetchall()]
+            admins = [row for row in rows if row.get("role") == "admin" and row.get("active") is not False]
+            target = next((row for row in rows if row.get("id") == record_id), None)
+            if target and target.get("role") == "admin" and len(admins) <= 1:
+                self.send_error_json("Nao e possivel excluir o ultimo administrador ativo.", 400)
+                return
+        with db_connection() as conn:
             ensure_entity_table(conn, entity_name)
             conn.execute(f"DELETE FROM {q(entity_name)} WHERE id=?", (record_id,))
             conn.commit()
@@ -1115,11 +1830,19 @@ class LocalHandler(BaseHTTPRequestHandler):
     def handle_upload(self) -> None:
         payload = parse_json_body(self)
         name = safe_name(Path(str(payload.get("name") or "arquivo.bin")).name)
-        extension = Path(name).suffix or mimetypes.guess_extension(str(payload.get("type") or "")) or ".bin"
+        extension = (Path(name).suffix or mimetypes.guess_extension(str(payload.get("type") or "")) or ".bin").lower()
+        if extension not in ALLOWED_UPLOAD_EXTENSIONS:
+            allowed = ", ".join(sorted(ALLOWED_UPLOAD_EXTENSIONS))
+            raise ValueError(f"Tipo de arquivo nao permitido ({extension}). Permitidos: {allowed}.")
+        base64_str = str(payload.get("base64") or "")
+        if len(base64_str) > (MAX_UPLOAD_BYTES * 4 // 3) + 8:
+            raise ValueError(f"Arquivo maior que o limite de {MAX_UPLOAD_BYTES // (1024 * 1024)}MB.")
+        raw = base64.b64decode(base64_str)
+        if len(raw) > MAX_UPLOAD_BYTES:
+            raise ValueError(f"Arquivo maior que o limite de {MAX_UPLOAD_BYTES // (1024 * 1024)}MB.")
         stem = Path(name).stem or "arquivo"
         file_name = f"{int(time.time() * 1000)}-{stem}{extension}"
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        raw = base64.b64decode(str(payload.get("base64") or ""))
         target = UPLOAD_DIR / file_name
         target.write_bytes(raw)
         self.send_json({"file_url": f"/uploads/{urllib.parse.quote(file_name)}"})
@@ -1133,6 +1856,7 @@ class LocalHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", mimetypes.guess_type(str(target))[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(content)))
+        self.send_header("Content-Disposition", f'attachment; filename="{target.name}"')
         self.end_headers()
         self.wfile.write(content)
 
@@ -1179,6 +1903,12 @@ class LocalHandler(BaseHTTPRequestHandler):
         if name == "purgeWhatsAppMessageLogs":
             self.send_json({"data": purge_whatsapp_message_logs(payload)})
             return
+        if name == "adjustStock":
+            self.send_json({"data": adjust_stock(payload)})
+            return
+        if name == "adjustStockBulk":
+            self.send_json({"data": adjust_stock_bulk(payload)})
+            return
         if name == "sendQuotePdfEmail":
             raise RuntimeError("Envio automatico de e-mail local ainda nao configurado. Usando fallback mailto/download.")
         if name in {"emitirNota", "consultarNota"}:
@@ -1189,8 +1919,11 @@ class LocalHandler(BaseHTTPRequestHandler):
 def main() -> None:
     if not DB_PATH.exists():
         print(f"Banco nao encontrado em {DB_PATH}. Execute: npm run db:sqlite", file=sys.stderr)
+    if ADMIN_PASSWORD == "troque-esta-senha":
+        print("AVISO: PINCEL_LUZ_ADMIN_PASSWORD nao foi definida; usando senha padrao insegura.", file=sys.stderr)
     print(f"Pincel Luz API local em http://{HOST}:{PORT}")
     print(f"SQLite: {DB_PATH}")
+    threading.Thread(target=run_backup_scheduler, daemon=True).start()
     try:
         ThreadingHTTPServer((HOST, PORT), LocalHandler).serve_forever()
     except Exception:

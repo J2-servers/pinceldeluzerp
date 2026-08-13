@@ -1,8 +1,9 @@
 import React from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { PieChart as PieIcon, Target } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const colors = ['#4f79f5', '#7c3aed', '#16a34a', '#f97316', '#dc2626', '#0891b2', '#db2777', '#64748b'];
 
 export default function FinanceCategoryAnalysis({ categoryData, paymentData }) {

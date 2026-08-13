@@ -7,6 +7,7 @@ import {
   LayoutDashboard, ShoppingCart, FileText, Wrench, DollarSign, Users, Package,
   CalendarDays, MessageCircle, Settings, BarChart3, Calculator,
   ChevronDown, X, Zap, Target, Landmark, BookOpen, ShieldCheck,
+  FileBarChart, History,
 } from 'lucide-react';
 import { useSession } from '@/lib/auth/useAuth';
 import { PAGE_PERMISSION, can } from '@/lib/auth/permissions';
@@ -36,6 +37,7 @@ const GROUPS = [
     accent: 'var(--gestao)', accentMuted: 'rgba(62,207,142,0.12)',
     items: [
       { name: 'Financeiro',   icon: DollarSign,  path: 'Financeiro' },
+      { name: 'DRE',          icon: FileBarChart, path: 'DRE' },
       { name: 'Relatorios',   icon: BarChart3,   path: 'Relatorios' },
       { name: 'Precificacao', icon: Calculator,  path: 'Precificacao' },
       { name: 'Metas',        icon: Target,      path: 'Metas' },
@@ -49,6 +51,7 @@ const GROUPS = [
       { name: 'WhatsApp',      icon: MessageCircle, path: 'WhatsApp' },
       { name: 'Notas Fiscais', icon: BookOpen,      path: 'NotasFiscais' },
       { name: 'Usuarios',      icon: ShieldCheck,   path: 'Usuarios' },
+      { name: 'Auditoria',     icon: History,       path: 'Auditoria' },
       { name: 'Configuracoes', icon: Settings,      path: 'Configuracoes' },
     ],
   },

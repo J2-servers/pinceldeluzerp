@@ -2,8 +2,9 @@ import React from 'react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Edit, Eye, FileText, Send, ShoppingCart } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const columns = [
   ['rascunho', 'Rascunhos'], ['enviado', 'Enviados'], ['aprovado', 'Aprovados'], ['reprovado', 'Reprovados'], ['expirado', 'Expirados']
 ];

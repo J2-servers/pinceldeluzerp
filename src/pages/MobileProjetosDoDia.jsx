@@ -6,21 +6,20 @@ import {
   ChevronRight, RefreshCw, Calendar
 } from 'lucide-react';
 import moment from 'moment';
-import 'moment/locale/pt-br';
-moment.locale('pt-br');
+import { formatCurrency } from '@/lib/numberFormat';
 
 const TODAY = moment().format('YYYY-MM-DD');
 
 const STATUS_COLORS = {
   novo:         { label: 'Novo',         color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)' },
-  em_producao:  { label: 'Em Produção',  color: '#f97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)' },
+  em_producao:  { label: 'Em ProduÃ§Ã£o',  color: '#f97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)' },
   pronto:       { label: 'Pronto',       color: '#16a34a', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)' },
   entregue:     { label: 'Entregue',     color: 'var(--text-tertiary)', bg: 'rgba(120,140,160,0.1)', border: 'rgba(120,140,160,0.2)' },
   cancelado:    { label: 'Cancelado',    color: '#dc2626', bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.3)' },
   aguardando:   { label: 'Aguardando',   color: '#ca8a04', bg: 'rgba(234,179,8,0.12)',  border: 'rgba(234,179,8,0.3)' },
   em_andamento: { label: 'Em Andamento', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)' },
   pausada:      { label: 'Pausada',      color: 'var(--text-tertiary)', bg: 'rgba(120,140,160,0.1)', border: 'rgba(120,140,160,0.2)' },
-  concluida:    { label: 'Concluída',    color: '#16a34a', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)' },
+  concluida:    { label: 'ConcluÃ­da',    color: '#16a34a', bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.3)' },
 };
 
 const NEXT = {
@@ -28,7 +27,7 @@ const NEXT = {
   ServiceOrder: { aguardando: 'em_andamento', em_andamento: 'concluida', pausada: 'em_andamento' },
 };
 
-const fmt = v => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const fmt = formatCurrency;
 
 function ProjectCard({ item, type, onStatusChange }) {
   const sc = STATUS_COLORS[item.status] || STATUS_COLORS.novo;
@@ -97,7 +96,7 @@ const FILTERS = [
   { value: 'ativos', label: 'Ativos' },
   { value: 'hoje', label: 'Hoje' },
   { value: 'all', label: 'Todos' },
-  { value: 'em_producao', label: 'Produção' },
+  { value: 'em_producao', label: 'ProduÃ§Ã£o' },
   { value: 'pronto', label: 'Prontos' },
 ];
 
@@ -245,7 +244,7 @@ export default function MobileProjetosDoDia() {
         <section className="px-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
             <Wrench className="w-4 h-4" style={{ color: '#7c3aed' }} />
-            <h2 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Ordens de Serviço</h2>
+            <h2 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Ordens de ServiÃ§o</h2>
             <span className="text-xs font-bold ml-auto px-2 py-0.5 rounded-full"
               style={{ background: 'rgba(124,58,237,0.1)', color: '#7c3aed' }}>{serviceItems.length}</span>
           </div>

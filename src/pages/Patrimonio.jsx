@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { downloadCsv } from '@/lib/downloadUtils';
+import { formatCurrency } from '@/lib/numberFormat';
 
 const assetCategories = ['maquinas', 'veiculos', 'moveis', 'informatica', 'ferramentas', 'equipamentos', 'outros'];
 const conditions = ['novo', 'bom', 'regular', 'ruim', 'inativo'];
@@ -54,7 +55,7 @@ const defaultMaintenance = {
   status: 'pendente',
 };
 
-const money = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 export default function Patrimonio() {
   const queryClient = useQueryClient();

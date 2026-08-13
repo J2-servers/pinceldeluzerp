@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import { toast } from '@/components/ui/app-toast';
@@ -11,9 +12,9 @@ import DeliveryModal from '@/components/producao/DeliveryModal';
 import Header from '@/components/layout/Header';
 import { RefreshCw, Monitor, X, Zap, CheckCircle, AlertTriangle, Package } from 'lucide-react';
 import moment from 'moment';
+import { normalizeText } from '@/lib/utils';
 
 const defaultFilters = { search: '', status: 'open', period: 'all', payment: 'all', sort: 'delivery', onlyLate: false, onlyReady: false };
-const normalizeText = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const ensureServiceOrderForSale = async (order) => {
   const existing = await erp.entities.ServiceOrder.filter({ sales_order_id: order.id });
@@ -48,7 +49,7 @@ const ensureFinancialEntryForSale = async (order, paymentMethod) => {
 
 const STATUS_MAP = {
   novo:         { label: 'Novo',        color: 'var(--accent)',  bg: 'rgba(91,141,239,0.12)' },
-  em_producao:  { label: 'ProduÃ§Ã£o',    color: 'var(--orange)', bg: 'rgba(251,146,60,0.12)' },
+  em_producao:  { label: 'Produção',    color: 'var(--orange)', bg: 'rgba(251,146,60,0.12)' },
   pronto:       { label: 'Pronto',      color: 'var(--green)',  bg: 'rgba(52,211,153,0.12)'  },
   atrasados:    { label: 'Atrasados',   color: 'var(--red)',    bg: 'rgba(248,113,113,0.12)' },
 };
@@ -75,7 +76,7 @@ function TVScreen({ orders, onClose }) {
       </button>
 
       <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '36px', fontWeight: '900', color: 'var(--text-primary)', lineHeight: 1 }}>Painel de ProduÃ§Ã£o</h1>
+        <h1 style={{ fontSize: '36px', fontWeight: '900', color: 'var(--text-primary)', lineHeight: 1 }}>Painel de Produção</h1>
         <p style={{ color: 'var(--text-tertiary)', marginTop: '6px', fontSize: '15px' }}>{moment().format('dddd, DD/MM/YYYY HH:mm')}</p>
       </div>
 
@@ -112,7 +113,7 @@ function TVScreen({ orders, onClose }) {
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.items}</div>
               <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: isLate ? 'var(--red)' : 'var(--text-tertiary)' }}>
-                  {o.delivery_date ? moment(o.delivery_date).format('DD/MM') : 'â€”'}
+                  {o.delivery_date ? moment(o.delivery_date).format('DD/MM') : '—'}
                 </span>
                 <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: STATUS_MAP[o.status]?.color || 'var(--text-tertiary)' }}>
                   {STATUS_MAP[o.status]?.label || o.status}
@@ -153,7 +154,7 @@ function ProductionProgressCard({ order }) {
         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.items}</div>
       )}
 
-      {/* Barra de progresso neumÃ³rfica */}
+      {/* Barra de progresso neumórfica */}
       <div style={{ marginBottom: '8px' }}>
         <div style={{ height: '8px', borderRadius: 'var(--r-xl)', background: 'var(--bg)', boxShadow: 'var(--shadow-pressed)', overflow: 'hidden' }}>
           <div style={{
@@ -179,20 +180,20 @@ function ProductionProgressCard({ order }) {
 
 export default function Producao() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState(defaultFilters);
   const [view, setView] = useState('kanban');
   const [deliverOrder, setDeliverOrder] = useState(null);
   const [showTV, setShowTV] = useState(false);
 
-  const { data: orders = [], isLoading } = useQuery({ queryKey: ['salesOrders'], queryFn: () => erp.entities.SalesOrder.list('-created_date', 200), refetchInterval: 30000 });
+  const { data: orders = [], isLoading } = useQuery({ queryKey: ['salesOrders', 'list', '-created_date', 200], queryFn: () => erp.entities.SalesOrder.list('-created_date', 200), refetchInterval: 30000 });
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const search = params.get('search') || params.get('busca');
-    const nextView = params.get('view');
+    const search = searchParams.get('search') || searchParams.get('busca');
+    const nextView = searchParams.get('view');
     if (search) setFilters((prev) => ({ ...prev, search, status: 'all', period: 'all', payment: 'all' }));
     if (['kanban', 'list'].includes(nextView)) setView(nextView);
-  }, []);
+  }, [searchParams]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ order, status }) => {
@@ -215,8 +216,9 @@ export default function Producao() {
     toast.success('Pedido entregue');
   };
 
+  const today = moment().format('YYYY-MM-DD');
+
   const filteredOrders = useMemo(() => {
-    const today = moment().format('YYYY-MM-DD');
     return orders.filter((order) => {
       const text = normalizeText([order.client_name, order.order_number, order.items, order.notes, order.status].join(' '));
       const late = order.delivery_date && order.delivery_date < today && !['entregue', 'cancelado'].includes(order.status);
@@ -233,34 +235,33 @@ export default function Producao() {
       if (filters.sort === 'client') return String(a.client_name || '').localeCompare(String(b.client_name || ''));
       return String(a.delivery_date || '9999').localeCompare(String(b.delivery_date || '9999'));
     });
-  }, [orders, filters]);
+  }, [orders, filters, today]);
 
-  const today = moment().format('YYYY-MM-DD');
-  const openOrders = orders.filter((o) => !['entregue', 'cancelado'].includes(o.status));
-  const daily = {
+  const openOrders = useMemo(() => orders.filter((o) => !['entregue', 'cancelado'].includes(o.status)), [orders]);
+  const daily = useMemo(() => ({
     late: openOrders.filter((o) => o.delivery_date && o.delivery_date < today),
     today: openOrders.filter((o) => o.delivery_date === today),
     production: openOrders.filter((o) => o.status === 'em_producao'),
     ready: openOrders.filter((o) => o.status === 'pronto')
-  };
-  const stats = {
+  }), [openOrders, today]);
+  const stats = useMemo(() => ({
     newOrders: openOrders.filter((o) => o.status === 'novo').length,
     production: daily.production.length,
     ready: daily.ready.length,
     late: daily.late.length,
     today: daily.today.length,
     open: openOrders.length
-  };
+  }), [openOrders, daily]);
 
   return (
     <div className="space-y-6 page-neu">
-      <Header title="ProduÃ§Ã£o" subtitle="Fila visual de produÃ§Ã£o, atrasos, prontos e entregas" />
+      <Header title="Produção" subtitle="Fila visual de produção, atrasos, prontos e entregas" />
 
-      {/* KPIs de visÃ£o geral */}
+      {/* KPIs de visão geral */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { title: 'Novos', value: stats.newOrders, icon: Package, color: 'var(--accent)' },
-          { title: 'Em ProduÃ§Ã£o', value: stats.production, icon: Zap, color: 'var(--orange)' },
+          { title: 'Em Produção', value: stats.production, icon: Zap, color: 'var(--orange)' },
           { title: 'Prontos', value: stats.ready, icon: CheckCircle, color: 'var(--green)' },
           { title: 'Atrasados', value: stats.late, icon: AlertTriangle, color: 'var(--red)', alert: stats.late > 0 },
         ].map(({ title, value, icon: Icon, color, alert }) => (
@@ -276,7 +277,7 @@ export default function Producao() {
         ))}
       </div>
 
-      {/* Toolbar com aÃ§Ãµes */}
+      {/* Toolbar com ações */}
       <div className="card p-4" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
         <button
           className="btn-nm"
@@ -305,11 +306,11 @@ export default function Producao() {
         </div>
       </div>
 
-      {/* Fila de produÃ§Ã£o com barras de progresso */}
+      {/* Fila de produção com barras de progresso */}
       {daily.production.length > 0 && (
         <div>
           <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Zap size={13} style={{ color: 'var(--orange)' }} /> Em ProduÃ§Ã£o Agora ({daily.production.length})
+            <Zap size={13} style={{ color: 'var(--orange)' }} /> Em Produção Agora ({daily.production.length})
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
             {daily.production.map(order => (

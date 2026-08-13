@@ -1,0 +1,70 @@
+{
+  "name": "QuoteRevision",
+  "type": "object",
+  "properties": {
+    "quote_id": {
+      "type": "string",
+      "description": "ID do orçamento de origem"
+    },
+    "quote_number": {
+      "type": "string",
+      "description": "Número do orçamento"
+    },
+    "revision_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Número sequencial da revisão (V1, V2, ...)"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "revision",
+        "approved",
+        "restore_point"
+      ],
+      "default": "revision",
+      "description": "Tipo do snapshot: revisão automática, versão aprovada congelada ou ponto de restauração"
+    },
+    "snapshot_json": {
+      "type": "string",
+      "description": "Snapshot completo (cabeçalho + itens + totais) em JSON"
+    },
+    "final_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Preço final no momento do snapshot"
+    },
+    "total_cost": {
+      "type": "number",
+      "default": 0,
+      "description": "Custo total no momento do snapshot"
+    },
+    "line_items_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de itens no snapshot"
+    },
+    "status_at_snapshot": {
+      "type": "string",
+      "description": "Status do orçamento quando o snapshot foi tirado"
+    },
+    "is_approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Marca a versão congelada que o cliente aprovou"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Quem gerou a revisão"
+    },
+    "note": {
+      "type": "string",
+      "description": "Nota do que mudou / motivo da revisão"
+    }
+  },
+  "required": [
+    "quote_id",
+    "revision_number",
+    "snapshot_json"
+  ]
+}

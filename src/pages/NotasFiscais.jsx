@@ -6,6 +6,7 @@ import EmitirNotaModal from '@/components/fiscal/EmitirNotaModal';
 import { ExternalLink, FileText, Loader2, Plus, RefreshCw, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatCurrency } from '@/lib/numberFormat';
 
 const STATUS_MAP = {
   pendente: { label: 'Processando', badge: 'badge-orange' },
@@ -14,7 +15,7 @@ const STATUS_MAP = {
   erro: { label: 'Erro', badge: 'badge-red' },
 };
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 const filterPeriods = [
   { label: 'Todos', value: 'all' },

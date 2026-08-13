@@ -10,7 +10,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      PINCEL_LUZ_ADMIN_PASSWORD: "${PINCEL_LUZ_ADMIN_PASSWORD:-troque-esta-senha}"
+      # Protege backup/restauracao e limpeza de historico. O login do sistema em si
+      # usa sessao (cria o admin no primeiro acesso) e nao depende destas variaveis.
+      PINCEL_LUZ_ADMIN_PASSWORD: "${PINCEL_LUZ_ADMIN_PASSWORD:?defina uma senha administrativa forte antes de subir o container}"
+      # Opcional: camada extra alem da sessao. Se preencher, defina o mesmo valor
+      # em VITE_LOCAL_API_TOKEN (build arg acima) ou o frontend perde acesso a API.
       PINCEL_LUZ_API_TOKEN: "${PINCEL_LUZ_API_TOKEN:-}"
       PINCEL_LUZ_ALLOWED_ORIGINS: "${PINCEL_LUZ_ALLOWED_ORIGINS:-http://127.0.0.1:8080,http://localhost:8080}"
       PINCEL_LUZ_DB: "/app/database/pincel-luz-erp.sqlite"

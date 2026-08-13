@@ -34,13 +34,17 @@ PINCEL_LUZ_DB=/app/database/pincel-luz-erp.sqlite
 PINCEL_LUZ_ALLOWED_ORIGINS=https://erp.seudominio.com
 ```
 
-Opcional, somente se tambem configurar o mesmo token como build arg do Vite:
+`PINCEL_LUZ_ADMIN_PASSWORD` **precisa** ser trocada antes do deploy — ela protege backup/restauracao e limpeza de historico do WhatsApp. Se a variavel nao for definida, o container sobe com a senha padrao insegura (e avisa isso no log).
+
+O acesso ao sistema em si (login, CRUD de clientes/vendas/financeiro etc.) e protegido por sessao: o primeiro acesso cria o administrador (tela de bootstrap), e toda chamada a API exige login valido. Isso e automatico, nao precisa de configuracao.
+
+Opcional, camada adicional (defesa em profundidade) se quiser um segredo compartilhado entre o Nginx/API e o frontend, alem da sessao:
 
 ```env
-PINCEL_LUZ_API_TOKEN=
+PINCEL_LUZ_API_TOKEN=um-segredo-qualquer
 ```
 
-Para o primeiro deploy, deixe `PINCEL_LUZ_API_TOKEN` vazio. A senha administrativa ja protege backups e restauracoes.
+Se definir `PINCEL_LUZ_API_TOKEN`, tambem defina o mesmo valor no build arg `VITE_LOCAL_API_TOKEN` (ver `docker-compose.yml`) — caso contrario o frontend nao vai conseguir falar com a API. Lembre-se de que esse token fica embutido no JavaScript enviado ao navegador (nao e um segredo real do ponto de vista do usuario logado); ele so serve para bloquear clientes que nao sao o proprio frontend do sistema.
 
 ## 4. Volumes persistentes
 
@@ -87,7 +91,9 @@ O script ajusta automaticamente:
 - `PINCEL_LUZ_ALLOWED_ORIGINS` para o dominio correto, sem barra final;
 - `PINCEL_LUZ_DB` para `/app/database/pincel-luz-erp.sqlite`;
 - build Dockerfile, branch `main` e `source.path` `/`;
-- remove tokens opcionais do primeiro deploy para evitar desencontro entre frontend e backend.
+- preenche `PINCEL_LUZ_ADMIN_PASSWORD` com um placeholder se estiver vazia (troque antes de implantar).
+
+Ele **preserva** `PINCEL_LUZ_API_TOKEN`/`VITE_LOCAL_API_TOKEN` se voce ja tiver configurado — o script nao apaga esses valores.
 
 Depois importe/copiar a configuracao corrigida e confira os volumes no painel:
 

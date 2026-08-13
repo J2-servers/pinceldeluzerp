@@ -3,6 +3,7 @@ import moment from 'moment';
 import { erp } from '@/api/erpClient';
 import { openMailto } from '@/lib/shareFallbacks';
 import { downloadBlob } from '@/lib/downloadUtils';
+import { formatCurrency } from '@/lib/numberFormat';
 
 const COLORS = {
   ink: [15, 23, 42],
@@ -15,7 +16,7 @@ const COLORS = {
   white: [255, 255, 255],
 };
 
-const money = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const text = (value, fallback = 'Nao informado') => String(value || fallback);
 
 const getFileName = (quote) => {

@@ -1,7 +1,8 @@
 ﻿import React from 'react';
 import { AlertTriangle, Banknote, CalendarClock, TrendingDown, TrendingUp, WalletCards } from 'lucide-react';
+import { formatCurrency } from '@/lib/numberFormat';
 
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = formatCurrency;
 
 function Metric({ icon: Icon, label, value, tone }) {
   return (

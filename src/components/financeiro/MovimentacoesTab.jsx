@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import GlassCard from '@/components/ui/GlassCard';
@@ -12,22 +12,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Search, Download, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import moment from 'moment';
 import { toast } from '@/components/ui/app-toast';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
 import { downloadCsv } from '@/lib/downloadUtils';
+import { createAuditLog } from '@/lib/erpCoreSync';
+import { formatCurrency } from '@/lib/numberFormat';
+import { PARTNERS } from '@/lib/financeConstants';
 
 const CATEGORIES = [
 { value: 'vendas', label: 'Vendas' },
-{ value: 'servicos', label: 'Serviços' },
+{ value: 'servicos', label: 'ServiÃ§os' },
 { value: 'aluguel', label: 'Aluguel' },
-{ value: 'salarios', label: 'Salários' },
+{ value: 'salarios', label: 'SalÃ¡rios' },
 { value: 'fornecedores', label: 'Fornecedores' },
 { value: 'impostos', label: 'Impostos' },
-{ value: 'manutencao', label: 'Manutenção' },
+{ value: 'manutencao', label: 'ManutenÃ§Ã£o' },
 { value: 'materiais', label: 'Materiais' },
 { value: 'outros', label: 'Outros' }];
 
 
 const PAYMENT_METHODS = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'parcelado', 'boleto', 'crediario', 'transferencia'];
-const PARTNERS = ['Maeli', 'Wesley', 'Juliano'];
 
 const emptyForm = {
   type: 'entrada', amount: '', description: '', category: 'vendas',
@@ -43,9 +46,10 @@ export default function MovimentacoesTab() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [partnerFilter, setPartnerFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('month');
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', 'list', '-date'],
     queryFn: () => erp.entities.Transaction.list('-date')
   });
 
@@ -55,16 +59,30 @@ export default function MovimentacoesTab() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       setShowForm(false);
       setForm(emptyForm);
-      toast.success('Transação registrada!');
+      toast.success('TransaÃ§Ã£o registrada!');
     }
   });
 
   const remove = useMutation({
-    mutationFn: (id) => erp.entities.Transaction.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    mutationFn: async (transaction) => {
+      // Trilha de auditoria antes de apagar: quem, o que e quanto (com 3 socios
+      // no mesmo caixa, exclusao sem rastro era o maior risco silencioso).
+      await createAuditLog({
+        module: 'financeiro', entity_name: 'Transaction', entity_id: transaction.id, action: 'delete',
+        document_number: transaction.description || '',
+        metadata: { type: transaction.type, amount: transaction.amount, category: transaction.category, date: transaction.date, partner: transaction.partner },
+      });
+      return erp.entities.Transaction.delete(transaction.id);
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['transactions'] }); toast.success('Lancamento excluido'); },
+    onError: (error) => toast.error(error.message || 'Nao foi possivel excluir'),
   });
 
-  const filtered = transactions.filter((t) => {
+  const today = moment().format('YYYY-MM-DD');
+  // `today` nao e lido dentro do callback (que usa moment() direto), mas forca
+  // o recalculo quando o dia civil muda â€” sem isso o filtro de periodo
+  // ("hoje"/"mes"/etc.) fica preso no dia em que a pagina foi aberta.
+  const filtered = useMemo(() => transactions.filter((t) => {
     const matchSearch = t.description?.toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === 'all' || t.type === typeFilter;
     const matchCat = categoryFilter === 'all' || t.category === categoryFilter;
@@ -75,28 +93,31 @@ export default function MovimentacoesTab() {
     if (periodFilter === 'last30') matchPeriod = moment(t.date).isAfter(moment().subtract(30, 'days'));else
     if (periodFilter === 'year') matchPeriod = moment(t.date).isSame(moment(), 'year');
     return matchSearch && matchType && matchCat && matchPartner && matchPeriod;
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [transactions, search, typeFilter, categoryFilter, partnerFilter, periodFilter, today]);
 
-  const totalEntradas = filtered.filter((t) => t.type === 'entrada').reduce((s, t) => s + (t.amount || 0), 0);
-  const totalSaidas = filtered.filter((t) => t.type === 'saida').reduce((s, t) => s + (t.amount || 0), 0);
-  const saldo = totalEntradas - totalSaidas;
+  const { totalEntradas, totalSaidas, saldo } = useMemo(() => {
+    const entradas = filtered.filter((t) => t.type === 'entrada').reduce((s, t) => s + (t.amount || 0), 0);
+    const saidas = filtered.filter((t) => t.type === 'saida').reduce((s, t) => s + (t.amount || 0), 0);
+    return { totalEntradas: entradas, totalSaidas: saidas, saldo: entradas - saidas };
+  }, [filtered]);
 
-  // Por sócio
-  const bySocio = PARTNERS.map((p) => ({
+  // Por sÃ³cio
+  const bySocio = useMemo(() => PARTNERS.map((p) => ({
     partner: p,
     entradas: filtered.filter((t) => t.type === 'entrada' && t.partner === p).reduce((s, t) => s + (t.amount || 0), 0),
     saidas: filtered.filter((t) => t.type === 'saida' && t.partner === p).reduce((s, t) => s + (t.amount || 0), 0)
-  }));
+  })), [filtered]);
 
   const exportCSV = () => {
-    const headers = ['Data', 'Tipo', 'Descrição', 'Categoria', 'Pagamento', 'Sócio', 'Valor'];
+    const headers = ['Data', 'Tipo', 'DescriÃ§Ã£o', 'Categoria', 'Pagamento', 'SÃ³cio', 'Valor'];
     const rows = filtered.map((t) => [
     moment(t.date).format('DD/MM/YYYY'), t.type, t.description, t.category, t.payment_method, t.partner, t.amount]
     );
     downloadCsv([headers, ...rows], `movimentacoes-${moment().format('YYYY-MM')}.csv`);
   };
 
-  const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = formatCurrency;
 
   return (
     <div className="space-y-4">
@@ -109,17 +130,17 @@ export default function MovimentacoesTab() {
         </GlassCard>
         <GlassCard className="text-center">
           <TrendingDown className="w-5 h-5 mx-auto mb-1" style={{ color: 'var(--red)' }} />
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Saídas</p>
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>SaÃ­das</p>
           <p className="font-bold" style={{ color: 'var(--red)' }}>{fmt(totalSaidas)}</p>
         </GlassCard>
         <GlassCard className="text-center col-span-2">
           <Wallet className="w-5 h-5 mx-auto mb-1" style={{ color: 'var(--accent)' }} />
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Saldo do Período</p>
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Saldo do PerÃ­odo</p>
           <p className="font-bold text-xl" style={{ color: saldo >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(saldo)}</p>
         </GlassCard>
       </div>
 
-      {/* Por sócio */}
+      {/* Por sÃ³cio */}
       <div className="grid grid-cols-3 gap-3">
         {bySocio.map((s) =>
         <GlassCard key={s.partner} className="p-3">
@@ -148,7 +169,7 @@ export default function MovimentacoesTab() {
               <SelectContent>
                 <SelectItem value="all">Tipo</SelectItem>
                 <SelectItem value="entrada">Entrada</SelectItem>
-                <SelectItem value="saida">Saída</SelectItem>
+                <SelectItem value="saida">SaÃ­da</SelectItem>
               </SelectContent>
             </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -159,19 +180,19 @@ export default function MovimentacoesTab() {
               </SelectContent>
             </Select>
             <Select value={partnerFilter} onValueChange={setPartnerFilter}>
-              <SelectTrigger className="w-32"><SelectValue placeholder="Sócio" /></SelectTrigger>
+              <SelectTrigger className="w-32"><SelectValue placeholder="SÃ³cio" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Sócio</SelectItem>
+                <SelectItem value="all">SÃ³cio</SelectItem>
                 {PARTNERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={periodFilter} onValueChange={setPeriodFilter}>
               <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todo período</SelectItem>
+                <SelectItem value="all">Todo perÃ­odo</SelectItem>
                 <SelectItem value="today">Hoje</SelectItem>
-                <SelectItem value="month">Este mês</SelectItem>
-                <SelectItem value="last30">Últimos 30d</SelectItem>
+                <SelectItem value="month">Este mÃªs</SelectItem>
+                <SelectItem value="last30">Ãšltimos 30d</SelectItem>
                 <SelectItem value="year">Este ano</SelectItem>
               </SelectContent>
             </Select>
@@ -181,7 +202,7 @@ export default function MovimentacoesTab() {
               <Download className="w-4 h-4 mr-1" /> CSV
             </Button>
             <Button onClick={() => {setForm(emptyForm);setShowForm(true);}} className="gradient-primary" size="sm">
-              <Plus className="w-4 h-4 mr-1" /> Transação
+              <Plus className="w-4 h-4 mr-1" /> TransaÃ§Ã£o
             </Button>
           </div>
         </div>
@@ -195,10 +216,10 @@ export default function MovimentacoesTab() {
               <TableRow style={{ borderColor: 'var(--border)' }}>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Data</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Tipo</TableHead>
-                <TableHead style={{ color: 'var(--text-tertiary)' }}>Descrição</TableHead>
+                <TableHead style={{ color: 'var(--text-tertiary)' }}>DescriÃ§Ã£o</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Categoria</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Pagamento</TableHead>
-                <TableHead style={{ color: 'var(--text-tertiary)' }}>Sócio</TableHead>
+                <TableHead style={{ color: 'var(--text-tertiary)' }}>SÃ³cio</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Valor</TableHead>
                 <TableHead />
               </TableRow>
@@ -220,14 +241,14 @@ export default function MovimentacoesTab() {
                     {t.type === 'entrada' ? '+' : '-'} {fmt(t.amount)}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove.mutate(t.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPendingDelete(t)}>
                       <Trash2 className="w-3 h-3" style={{ color: 'var(--red)' }} />
                     </Button>
                   </TableCell>
                 </TableRow>
               )}
               {filtered.length === 0 &&
-              <TableRow><TableCell colSpan={8} className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>Nenhuma transação encontrada</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8" style={{ color: 'var(--text-tertiary)' }}>Nenhuma transaÃ§Ã£o encontrada</TableCell></TableRow>
               }
             </TableBody>
           </Table>
@@ -238,7 +259,7 @@ export default function MovimentacoesTab() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-lg" style={{ background: 'var(--bg)', boxShadow: 'var(--shadow-xl)', borderRadius: 'var(--r-2xl)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
           <DialogHeader>
-            <DialogTitle>Nova Transação</DialogTitle>
+            <DialogTitle>Nova TransaÃ§Ã£o</DialogTitle>
           </DialogHeader>
           <form onSubmit={(e) => {e.preventDefault();create.mutate(form);}} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -248,7 +269,7 @@ export default function MovimentacoesTab() {
                   <SelectTrigger className=""><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="entrada">Entrada</SelectItem>
-                    <SelectItem value="saida">Saída</SelectItem>
+                    <SelectItem value="saida">SaÃ­da</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -260,7 +281,7 @@ export default function MovimentacoesTab() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Descrição *</Label>
+              <Label>DescriÃ§Ã£o *</Label>
               <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="" required />
             </div>
@@ -287,7 +308,7 @@ export default function MovimentacoesTab() {
                 className="" required />
               </div>
               <div className="space-y-2">
-                <Label>Sócio Responsável</Label>
+                <Label>SÃ³cio ResponsÃ¡vel</Label>
                 <Select value={form.partner} onValueChange={(v) => setForm({ ...form, partner: v })}>
                   <SelectTrigger className=""><SelectValue /></SelectTrigger>
                   <SelectContent>{PARTNERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
@@ -303,6 +324,14 @@ export default function MovimentacoesTab() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(value) => !value && setPendingDelete(null)}
+        title="Excluir lancamento?"
+        description={pendingDelete ? `${pendingDelete.description || 'Lancamento'} - ${fmt(pendingDelete.amount)}. Esta acao fica registrada na auditoria e nao pode ser desfeita.` : ''}
+        onConfirm={() => { remove.mutate(pendingDelete); setPendingDelete(null); }}
+      />
     </div>);
 
 }

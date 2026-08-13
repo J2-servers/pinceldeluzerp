@@ -196,10 +196,12 @@ CREATE TABLE IF NOT EXISTS "Client" (
   "whatsapp" TEXT,
   "email" TEXT,
   "address" TEXT,
+  "cpf_cnpj" TEXT,
   "payment_method" TEXT,
   "status" TEXT,
   "total_purchases" REAL,
   "total_debt" REAL,
+  "credit_limit" REAL,
   "notes" TEXT
 );
 
@@ -871,6 +873,30 @@ CREATE INDEX IF NOT EXISTS "idx_PermissionRule_created_by_id" ON "PermissionRule
 
 CREATE INDEX IF NOT EXISTS "idx_PermissionRule_role_id" ON "PermissionRule" ("role_id");
 
+CREATE TABLE IF NOT EXISTS "PriceChangeLog" (
+  "id" TEXT PRIMARY KEY,
+  "created_date" TEXT,
+  "updated_date" TEXT,
+  "created_by_id" TEXT,
+  "created_by" TEXT,
+  "updated_by" TEXT,
+  "is_sample" INTEGER,
+  "entity_name" TEXT,
+  "record_id" TEXT,
+  "record_label" TEXT,
+  "action" TEXT,
+  "changed_fields" TEXT,
+  "user_name" TEXT
+);
+
+CREATE INDEX IF NOT EXISTS "idx_PriceChangeLog_created_date" ON "PriceChangeLog" ("created_date");
+
+CREATE INDEX IF NOT EXISTS "idx_PriceChangeLog_updated_date" ON "PriceChangeLog" ("updated_date");
+
+CREATE INDEX IF NOT EXISTS "idx_PriceChangeLog_created_by_id" ON "PriceChangeLog" ("created_by_id");
+
+CREATE INDEX IF NOT EXISTS "idx_PriceChangeLog_record_id" ON "PriceChangeLog" ("record_id");
+
 CREATE TABLE IF NOT EXISTS "Product" (
   "id" TEXT PRIMARY KEY,
   "created_date" TEXT,
@@ -895,6 +921,8 @@ CREATE TABLE IF NOT EXISTS "Product" (
   "can_sell" INTEGER,
   "track_stock" INTEGER,
   "auto_deduct_on_sale" INTEGER,
+  "track_area_stock" INTEGER,
+  "min_stock_m2" REAL,
   "is_active" INTEGER,
   "quantity" REAL,
   "min_quantity" REAL,
@@ -921,6 +949,13 @@ CREATE TABLE IF NOT EXISTS "Product" (
   "responsible_partner" TEXT,
   "auto_create_asset" INTEGER,
   "linked_asset_id" TEXT,
+  "variant_group_id" TEXT,
+  "variant_label" TEXT,
+  "variant_attributes" TEXT,
+  "variant_attribute_schema" TEXT,
+  "image_url" TEXT,
+  "is_kit" INTEGER,
+  "kit_components" TEXT,
   "notes" TEXT
 );
 
@@ -933,6 +968,8 @@ CREATE INDEX IF NOT EXISTS "idx_Product_created_by_id" ON "Product" ("created_by
 CREATE INDEX IF NOT EXISTS "idx_Product_category_id" ON "Product" ("category_id");
 
 CREATE INDEX IF NOT EXISTS "idx_Product_linked_asset_id" ON "Product" ("linked_asset_id");
+
+CREATE INDEX IF NOT EXISTS "idx_Product_variant_group_id" ON "Product" ("variant_group_id");
 
 CREATE TABLE IF NOT EXISTS "ProductAlternative" (
   "id" TEXT PRIMARY KEY,
@@ -1221,7 +1258,15 @@ CREATE TABLE IF NOT EXISTS "ProductQuote" (
   "notes" TEXT,
   "internal_notes" TEXT,
   "payment_conditions" TEXT,
-  "created_by_partner" TEXT
+  "created_by_partner" TEXT,
+  "revision" REAL,
+  "option_group_id" TEXT,
+  "option_label" TEXT,
+  "approved_by_name" TEXT,
+  "approved_at" TEXT,
+  "approved_revision" REAL,
+  "approval_note" TEXT,
+  "rejection_reason" TEXT
 );
 
 CREATE INDEX IF NOT EXISTS "idx_ProductQuote_created_date" ON "ProductQuote" ("created_date");
@@ -1233,6 +1278,8 @@ CREATE INDEX IF NOT EXISTS "idx_ProductQuote_created_by_id" ON "ProductQuote" ("
 CREATE INDEX IF NOT EXISTS "idx_ProductQuote_quote_number" ON "ProductQuote" ("quote_number");
 
 CREATE INDEX IF NOT EXISTS "idx_ProductQuote_product_id" ON "ProductQuote" ("product_id");
+
+CREATE INDEX IF NOT EXISTS "idx_ProductQuote_option_group_id" ON "ProductQuote" ("option_group_id");
 
 CREATE TABLE IF NOT EXISTS "ProductUnit" (
   "id" TEXT PRIMARY KEY,
@@ -1482,6 +1529,39 @@ CREATE INDEX IF NOT EXISTS "idx_QuoteCatalogItem_updated_date" ON "QuoteCatalogI
 
 CREATE INDEX IF NOT EXISTS "idx_QuoteCatalogItem_created_by_id" ON "QuoteCatalogItem" ("created_by_id");
 
+CREATE TABLE IF NOT EXISTS "QuoteRevision" (
+  "id" TEXT PRIMARY KEY,
+  "created_date" TEXT,
+  "updated_date" TEXT,
+  "created_by_id" TEXT,
+  "created_by" TEXT,
+  "updated_by" TEXT,
+  "is_sample" INTEGER,
+  "quote_id" TEXT,
+  "quote_number" TEXT,
+  "revision_number" REAL,
+  "kind" TEXT,
+  "snapshot_json" TEXT,
+  "final_price" REAL,
+  "total_cost" REAL,
+  "line_items_count" REAL,
+  "status_at_snapshot" TEXT,
+  "is_approved" INTEGER,
+  "note" TEXT
+);
+
+CREATE INDEX IF NOT EXISTS "idx_QuoteRevision_created_date" ON "QuoteRevision" ("created_date");
+
+CREATE INDEX IF NOT EXISTS "idx_QuoteRevision_updated_date" ON "QuoteRevision" ("updated_date");
+
+CREATE INDEX IF NOT EXISTS "idx_QuoteRevision_created_by_id" ON "QuoteRevision" ("created_by_id");
+
+CREATE INDEX IF NOT EXISTS "idx_QuoteRevision_quote_id" ON "QuoteRevision" ("quote_id");
+
+CREATE INDEX IF NOT EXISTS "idx_QuoteRevision_quote_number" ON "QuoteRevision" ("quote_number");
+
+CREATE INDEX IF NOT EXISTS "idx_QuoteRevision_revision_number" ON "QuoteRevision" ("revision_number");
+
 CREATE TABLE IF NOT EXISTS "Role" (
   "id" TEXT PRIMARY KEY,
   "created_date" TEXT,
@@ -1684,7 +1764,11 @@ CREATE TABLE IF NOT EXISTS "ScrapInventory" (
   "thickness" REAL,
   "area" REAL,
   "status" TEXT,
-  "location" TEXT
+  "location" TEXT,
+  "product_id" TEXT,
+  "used_at" TEXT,
+  "discarded_at" TEXT,
+  "notes" TEXT
 );
 
 CREATE INDEX IF NOT EXISTS "idx_ScrapInventory_created_date" ON "ScrapInventory" ("created_date");
@@ -1692,6 +1776,8 @@ CREATE INDEX IF NOT EXISTS "idx_ScrapInventory_created_date" ON "ScrapInventory"
 CREATE INDEX IF NOT EXISTS "idx_ScrapInventory_updated_date" ON "ScrapInventory" ("updated_date");
 
 CREATE INDEX IF NOT EXISTS "idx_ScrapInventory_created_by_id" ON "ScrapInventory" ("created_by_id");
+
+CREATE INDEX IF NOT EXISTS "idx_ScrapInventory_product_id" ON "ScrapInventory" ("product_id");
 
 CREATE TABLE IF NOT EXISTS "SellerCommission" (
   "id" TEXT PRIMARY KEY,
@@ -1844,6 +1930,10 @@ CREATE TABLE IF NOT EXISTS "StockCountItem" (
   "is_sample" INTEGER,
   "session_id" TEXT,
   "product_variant_id" TEXT,
+  "product_id" TEXT,
+  "product_name" TEXT,
+  "sku" TEXT,
+  "unit" TEXT,
   "location_id" TEXT,
   "expected_quantity" REAL,
   "counted_quantity" REAL,
@@ -1861,6 +1951,8 @@ CREATE INDEX IF NOT EXISTS "idx_StockCountItem_session_id" ON "StockCountItem" (
 
 CREATE INDEX IF NOT EXISTS "idx_StockCountItem_product_variant_id" ON "StockCountItem" ("product_variant_id");
 
+CREATE INDEX IF NOT EXISTS "idx_StockCountItem_product_id" ON "StockCountItem" ("product_id");
+
 CREATE INDEX IF NOT EXISTS "idx_StockCountItem_location_id" ON "StockCountItem" ("location_id");
 
 CREATE TABLE IF NOT EXISTS "StockCountSession" (
@@ -1872,12 +1964,16 @@ CREATE TABLE IF NOT EXISTS "StockCountSession" (
   "updated_by" TEXT,
   "is_sample" INTEGER,
   "session_number" TEXT,
+  "name" TEXT,
   "warehouse_id" TEXT,
   "status" TEXT,
   "scheduled_date" TEXT,
   "started_at" TEXT,
   "completed_at" TEXT,
   "responsible_user_email" TEXT,
+  "category_filter" TEXT,
+  "total_items" REAL,
+  "divergence_count" REAL,
   "notes" TEXT
 );
 
@@ -1931,7 +2027,14 @@ CREATE TABLE IF NOT EXISTS "StockMovement" (
   "type" TEXT,
   "quantity" REAL,
   "reason" TEXT,
-  "date" TEXT
+  "date" TEXT,
+  "unit_cost" REAL,
+  "previous_quantity" REAL,
+  "new_quantity" REAL,
+  "previous_cost" REAL,
+  "new_cost" REAL,
+  "reference_id" TEXT,
+  "user_name" TEXT
 );
 
 CREATE INDEX IF NOT EXISTS "idx_StockMovement_created_date" ON "StockMovement" ("created_date");
@@ -1941,6 +2044,8 @@ CREATE INDEX IF NOT EXISTS "idx_StockMovement_updated_date" ON "StockMovement" (
 CREATE INDEX IF NOT EXISTS "idx_StockMovement_created_by_id" ON "StockMovement" ("created_by_id");
 
 CREATE INDEX IF NOT EXISTS "idx_StockMovement_product_id" ON "StockMovement" ("product_id");
+
+CREATE INDEX IF NOT EXISTS "idx_StockMovement_reference_id" ON "StockMovement" ("reference_id");
 
 CREATE TABLE IF NOT EXISTS "StockMovementItem" (
   "id" TEXT PRIMARY KEY,
@@ -2130,7 +2235,13 @@ CREATE TABLE IF NOT EXISTS "User" (
   "created_by" TEXT,
   "updated_by" TEXT,
   "is_sample" INTEGER,
-  "role" TEXT
+  "name" TEXT,
+  "email" TEXT,
+  "password_hash" TEXT,
+  "role" TEXT,
+  "active" INTEGER,
+  "must_change_password" INTEGER,
+  "last_login" TEXT
 );
 
 CREATE INDEX IF NOT EXISTS "idx_User_created_date" ON "User" ("created_date");
@@ -2138,6 +2249,8 @@ CREATE INDEX IF NOT EXISTS "idx_User_created_date" ON "User" ("created_date");
 CREATE INDEX IF NOT EXISTS "idx_User_updated_date" ON "User" ("updated_date");
 
 CREATE INDEX IF NOT EXISTS "idx_User_created_by_id" ON "User" ("created_by_id");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "ux_user_email" ON "User" ("email");
 
 CREATE TABLE IF NOT EXISTS "VolumePricing" (
   "id" TEXT PRIMARY KEY,

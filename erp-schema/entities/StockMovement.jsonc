@@ -14,7 +14,10 @@
       "type": "string",
       "enum": [
         "entrada",
-        "saida"
+        "saida",
+        "ajuste",
+        "devolucao",
+        "estorno"
       ],
       "description": "Tipo de movimenta\u00e7\u00e3o"
     },
@@ -30,6 +33,34 @@
       "type": "string",
       "format": "date",
       "description": "Data"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Custo unit\u00e1rio informado na entrada (compra)"
+    },
+    "previous_quantity": {
+      "type": "number",
+      "description": "Quantidade antes da movimenta\u00e7\u00e3o"
+    },
+    "new_quantity": {
+      "type": "number",
+      "description": "Quantidade depois da movimenta\u00e7\u00e3o"
+    },
+    "previous_cost": {
+      "type": "number",
+      "description": "Custo m\u00e9dio antes da movimenta\u00e7\u00e3o"
+    },
+    "new_cost": {
+      "type": "number",
+      "description": "Custo m\u00e9dio depois da movimenta\u00e7\u00e3o (quando recalculado)"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "ID do documento de origem (venda, or\u00e7amento ou sess\u00e3o de invent\u00e1rio)"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Usu\u00e1rio que registrou a movimenta\u00e7\u00e3o"
     }
   },
   "required": [

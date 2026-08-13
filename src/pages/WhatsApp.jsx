@@ -13,12 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/app-toast';
-import { normalizePhoneBR } from '@/lib/numberFormat';
+import { formatCurrency, normalizePhoneBR } from '@/lib/numberFormat';
+import { downloadCsv } from '@/lib/downloadUtils';
 import { sendWhatsAppMessage, whatsappResultMessage } from '@/lib/whatsappSender';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart as RechartsPieChart, Pie, Cell,
 } from 'recharts';
 import {
@@ -26,11 +26,22 @@ import {
   CheckCircle2, Clipboard, Clock, Copy,
   Database, Eye, EyeOff, FileDown, FileText, Filter,
   Gauge, History, KeyRound, Link2, Loader2, Lock,
-  MessageCircle, Megaphone, Phone, PlugZap,
+  Megaphone, Phone, PlugZap,
   QrCode, RefreshCw, RotateCcw, Save, Search, Send, Settings,
   ShieldCheck, ShieldOff, Smartphone, Star, Trash2, TrendingUp,
   Unplug, Users, Wifi, WifiOff, X, XCircle, Zap,
 } from 'lucide-react';
+import PulsingDot from '@/components/whatsapp/PulsingDot';
+import StatCard from '@/components/whatsapp/StatCard';
+import EventLine from '@/components/whatsapp/EventLine';
+import PhoneMockup from '@/components/whatsapp/PhoneMockup';
+import MessageDetailModal from '@/components/whatsapp/MessageDetailModal';
+import MessageLogRow from '@/components/whatsapp/MessageLogRow';
+import {
+  fmtDT, fmtTime, maskSecret, cleanUrl, stateToLabel,
+  extractQrPayload, fillTemplate, copyToClipboard,
+  buildDailyChart, buildHourChart, buildTemplateChart,
+} from '@/components/whatsapp/helpers';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -68,236 +79,7 @@ const PIE_COLORS = ['#10b981', '#3b82f6', '#f43f5e'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const maskSecret = (value = '') => value ? `${value.slice(0, 4)}${'*'.repeat(Math.max(8, value.length - 8))}${value.slice(-4)}` : 'não configurada';
-const money = (value) => `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-const cleanUrl = (value) => String(value || '').replace(/\/+$/, '');
-const stateToLabel = (state) => ({ open: 'Conectado', close: 'Desconectado', connecting: 'Conectando…' }[state] || state || 'Desconhecido');
-const fmtDT = (value) => value ? new Date(value).toLocaleString('pt-BR') : '--';
-const fmtDate = (value) => value ? new Date(value).toLocaleDateString('pt-BR') : '--';
-const fmtTime = (value) => value ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--';
-
-function extractQrPayload(data) {
-  const qr = data?.qr || data || {};
-  const base64 = qr.base64 || qr.qrcode?.base64 || qr.code?.base64 || '';
-  const code = qr.code || qr.qrcode?.code || qr.qr || qr.qrcode || '';
-  const pairingCode = qr.pairingCode || qr.pairing_code || qr.pairing || '';
-  return { base64, code: typeof code === 'string' ? code : '', pairingCode };
-}
-
-function fillTemplate(tpl, client) {
-  const name = client?.name || 'cliente';
-  const value = Number(client?.total_debt || client?.debt || 0).toFixed(2);
-  return tpl.replaceAll('{nome}', name).replaceAll('{valor}', value);
-}
-
-function buildDailyChart(logs) {
-  const map = {};
-  logs.forEach((log) => {
-    const d = fmtDate(log.created_date);
-    if (!map[d]) map[d] = { date: d, enviadas: 0, preparadas: 0, falhas: 0 };
-    if (log.status === 'sent') map[d].enviadas++;
-    else if (log.status === 'prepared') map[d].preparadas++;
-    else map[d].falhas++;
-  });
-  return Object.values(map).slice(-14);
-}
-
-function buildHourChart(logs) {
-  const map = Array.from({ length: 24 }, (_, h) => ({ hora: `${String(h).padStart(2, '0')}h`, qtd: 0 }));
-  logs.forEach((log) => {
-    if (!log.created_date) return;
-    const h = new Date(log.created_date).getHours();
-    map[h].qtd++;
-  });
-  return map;
-}
-
-function buildTemplateChart(logs) {
-  const map = {};
-  logs.forEach((log) => {
-    const k = log.template || 'Sem template';
-    if (!map[k]) map[k] = { name: k, total: 0 };
-    map[k].total++;
-  });
-  return Object.values(map).sort((a, b) => b.total - a.total).slice(0, 8);
-}
-
-async function copyToClipboard(text) {
-  try { await navigator.clipboard.writeText(text || ''); return true; } catch { return false; }
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function PulsingDot({ active }) {
-  return (
-    <span className="relative flex h-3 w-3">
-      {active && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />}
-      <span className={`relative inline-flex h-3 w-3 rounded-full ${active ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-    </span>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, hint, tone = 'text-cyan-300', dark = true }) {
-  const bg = dark ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-white shadow-sm';
-  const labelColor = dark ? 'text-slate-400' : 'text-slate-500';
-  const hintColor = dark ? 'text-slate-500' : 'text-slate-400';
-  const iconBg = dark ? 'bg-white/8 text-slate-200' : 'bg-slate-100 text-slate-600';
-  return (
-    <div className={`rounded-2xl border p-4 ${bg}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className={`text-[11px] uppercase tracking-[0.14em] ${labelColor}`}>{label}</p>
-          <p className={`mt-1 text-2xl font-black ${tone}`}>{value}</p>
-        </div>
-        <div className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl ${iconBg}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      {hint && <p className={`mt-2 text-xs ${hintColor}`}>{hint}</p>}
-    </div>
-  );
-}
-
-function EventLine({ item }) {
-  const colors = { success: 'bg-emerald-400', error: 'bg-rose-400', warn: 'bg-amber-400' };
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-      <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${colors[item.type] || 'bg-cyan-400'}`} />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-100">{item.title}</p>
-        {item.detail && <p className="mt-0.5 text-xs text-slate-400 break-words">{item.detail}</p>}
-      </div>
-      <span className="text-[11px] text-slate-500 flex-shrink-0">{item.time}</span>
-    </div>
-  );
-}
-
-function PhoneMockup({ message, clientName }) {
-  const text = message || 'Sua mensagem aparecerá aqui…';
-  const now = fmtTime(new Date().toISOString());
-  return (
-    <div className="mx-auto flex w-64 flex-col rounded-[2.5rem] border-4 border-slate-700 bg-slate-800 shadow-2xl">
-      <div className="flex flex-col rounded-t-[2rem] bg-emerald-700 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-white/20 grid place-items-center text-white font-bold text-sm">
-            {(clientName || 'C')[0].toUpperCase()}
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">{clientName || 'Cliente'}</p>
-            <p className="text-[10px] text-emerald-200">online</p>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 bg-[#0d1117] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMCAwaDQwdjQwSDB6IiBmaWxsPSJub25lIi8+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjAuNSIgZmlsbD0iIzIyMjgzYSIvPjwvc3ZnPg==')] px-3 py-4 min-h-[160px]">
-        <div className="ml-auto max-w-[85%] rounded-tl-2xl rounded-bl-2xl rounded-tr-sm rounded-br-2xl bg-emerald-700 p-3 shadow">
-          <p className="text-xs text-white leading-relaxed whitespace-pre-wrap">{text.slice(0, 320)}{text.length > 320 ? '…' : ''}</p>
-          <p className="mt-1 text-right text-[10px] text-emerald-200">{now} ✓✓</p>
-        </div>
-      </div>
-      <div className="rounded-b-[2rem] bg-slate-900 px-3 py-2">
-        <div className="flex items-center gap-2 rounded-full bg-slate-700 px-3 py-1.5">
-          <p className="flex-1 text-xs text-slate-500">Mensagem</p>
-          <MessageCircle className="h-4 w-4 text-emerald-500" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageDetailModal({ log, onClose }) {
-  if (!log) return null;
-  const sent = log.status === 'sent';
-  const prepared = log.status === 'prepared';
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-cyan-600" />
-            Detalhe da Mensagem
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Cliente</p>
-              <p className="font-semibold">{log.client_name || 'Sem nome'}</p>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Telefone</p>
-              <p className="font-semibold">{log.phone || '--'}</p>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Status</p>
-              <Badge className={sent ? 'bg-emerald-100 text-emerald-700' : prepared ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}>
-                {sent ? 'Enviada' : prepared ? 'Preparada' : 'Falhou'}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Canal</p>
-              <Badge variant="outline">{log.channel || 'desconhecido'}</Badge>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Fonte</p>
-              <p className="font-medium">{log.source || 'sistema'}</p>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Template</p>
-              <p className="font-medium">{log.template || 'avulsa'}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Data/Hora</p>
-              <p className="font-medium">{fmtDT(log.created_date)}</p>
-            </div>
-          </div>
-          <div>
-            <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">Conteúdo da mensagem</p>
-            <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-800 whitespace-pre-wrap">{log.message || 'sem conteúdo'}</div>
-          </div>
-          {log.reason && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-              <strong>Motivo da falha:</strong> {log.reason}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={async () => { await copyToClipboard(log.message); toast.success('Mensagem copiada'); }}>
-              <Copy className="h-4 w-4" /> Copiar texto
-            </Button>
-            <Button size="sm" variant="outline" onClick={async () => { await copyToClipboard(log.phone); toast.success('Telefone copiado'); }}>
-              <Phone className="h-4 w-4" /> Copiar telefone
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function MessageLogRow({ log, onDetail }) {
-  const sent = log.status === 'sent';
-  const prepared = log.status === 'prepared';
-  return (
-    <div className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-cyan-300 hover:shadow-md">
-      <div className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${sent ? 'bg-emerald-400' : prepared ? 'bg-blue-400' : 'bg-rose-400'}`} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2 mb-1">
-          <p className="font-bold text-slate-900 text-sm">{log.client_name || 'Contato sem nome'}</p>
-          <Badge className={`text-[11px] ${sent ? 'bg-emerald-100 text-emerald-700' : prepared ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}`}>
-            {sent ? 'enviada' : prepared ? 'preparada' : 'falhou'}
-          </Badge>
-          <Badge variant="outline" className="text-[11px]">{log.channel || 'canal indefinido'}</Badge>
-          {log.template && <Badge variant="outline" className="text-[11px]">{log.template}</Badge>}
-        </div>
-        <p className="text-xs text-slate-500 mb-2">{log.phone || 'sem telefone'} · {fmtDT(log.created_date)} · {log.source || 'sistema'}</p>
-        <p className="line-clamp-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">{log.message || 'sem conteúdo'}</p>
-        {log.reason && <p className="mt-1.5 text-xs text-rose-600">⚠ {log.reason}</p>}
-      </div>
-      <Button size="sm" variant="ghost" onClick={() => onDetail(log)} className="opacity-0 group-hover:opacity-100 transition flex-shrink-0">
-        <Eye className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-}
+const money = formatCurrency;
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -541,12 +323,9 @@ export default function WhatsApp() {
   }, [clients, quotes, bulkSegment]);
 
   const exportLogsCSV = () => {
-    const header = 'Data,Cliente,Telefone,Status,Canal,Template,Fonte,Mensagem';
-    const rows = filteredLogs.map((l) => [fmtDT(l.created_date), l.client_name || '', l.phone || '', l.status || '', l.channel || '', l.template || '', l.source || '', `"${(l.message || '').replace(/"/g, '""')}"`].join(','));
-    const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `whatsapp_historico_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    const header = ['Data', 'Cliente', 'Telefone', 'Status', 'Canal', 'Template', 'Fonte', 'Mensagem'];
+    const rows = filteredLogs.map((l) => [fmtDT(l.created_date), l.client_name || '', l.phone || '', l.status || '', l.channel || '', l.template || '', l.source || '', l.message || '']);
+    downloadCsv([header, ...rows], `whatsapp_historico_${Date.now()}.csv`);
     toast.success('CSV exportado com sucesso');
   };
 

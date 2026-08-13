@@ -134,6 +134,7 @@ export const PAGE_PERMISSION = {
   Compras: 'compras:read',
   Fornecedores: 'compras:read',
   Financeiro: 'financeiro:read',
+  DRE: 'financeiro:read',
   Relatorios: 'relatorios:read',
   Precificacao: 'precificacao:read',
   Patrimonio: 'patrimonio:read',

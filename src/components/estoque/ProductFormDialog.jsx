@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Box, CheckCircle2, Layers3, Package, Ruler, Warehouse } from 'lucide-react';
+import { AlertTriangle, Box, Boxes, CheckCircle2, Layers3, Package, Plus, Ruler, Trash2, Warehouse } from 'lucide-react';
 import CategoryField from '@/components/catalog/CategoryField';
+import ImageUploadField from '@/components/estoque/ImageUploadField';
 import { parseDecimal, roundCurrency } from '@/lib/numberFormat';
 import { money } from '@/lib/pricingEngine';
+import { normalizeText } from '@/lib/utils';
 
 const units = ['un', 'm', 'm2', 'kg', 'cx', 'pc', 'rolo', 'folha'];
 const pricingModes = [
@@ -47,6 +49,8 @@ const defaultForm = {
   can_sell: true,
   track_stock: true,
   auto_deduct_on_sale: true,
+  track_area_stock: false,
+  min_stock_m2: 0,
   is_active: true,
   quantity: 0,
   min_quantity: 1,
@@ -68,8 +72,24 @@ const defaultForm = {
   responsible_partner: 'Maeli',
   auto_create_asset: false,
   linked_asset_id: '',
+  variant_group_id: '',
+  variant_label: '',
+  image_url: '',
+  is_kit: false,
+  kit_components: '',
   notes: '',
 };
+
+function parseKitComponents(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function normalizeSheetDimension(value) {
   const dimension = parseDecimal(value);
@@ -140,16 +160,85 @@ function SummaryLine({ label, value, tone = 'slate' }) {
   );
 }
 
-export default function ProductFormDialog({ open, onClose, product = null, onSubmit, saving, categories = [], onCreateCategory }) {
+export default function ProductFormDialog({ open, onClose, product = null, onSubmit, saving, categories = [], onCreateCategory, products = [], variationSource = null }) {
   const [form, setForm] = useState(defaultForm);
+  const [kitRows, setKitRows] = useState([]);
+  const [kitDraft, setKitDraft] = useState({ product_id: '', quantity: 1 });
 
   useEffect(() => {
     if (!open) return;
-    setForm(product ? { ...defaultForm, ...product } : defaultForm);
-  }, [open, product]);
+    if (variationSource) {
+      const copy = { ...variationSource };
+      ['id', 'created_date', 'updated_date', 'created_by', 'updated_by'].forEach((key) => delete copy[key]);
+      setForm({
+        ...defaultForm,
+        ...copy,
+        sku: '',
+        barcode: '',
+        quantity: 0,
+        linked_asset_id: '',
+        auto_create_asset: false,
+        variant_group_id: variationSource.variant_group_id || variationSource.id,
+        variant_label: '',
+      });
+      setKitRows(parseKitComponents(variationSource.kit_components));
+    } else {
+      setForm(product ? { ...defaultForm, ...product } : defaultForm);
+      setKitRows(parseKitComponents(product?.kit_components));
+    }
+    setKitDraft({ product_id: '', quantity: 1 });
+  }, [open, product, variationSource]);
+
+  const generateSku = () => {
+    const base = normalizeText(form.category || '').replace(/[^a-z0-9]/g, '');
+    const prefix = (base.slice(0, 3) || 'prd').toUpperCase();
+    const existing = new Set(products.map((item) => String(item.sku || '').trim().toUpperCase()).filter(Boolean));
+    let seq = 0;
+    existing.forEach((sku) => {
+      if (!sku.startsWith(`${prefix}-`)) return;
+      const num = parseInt(sku.slice(prefix.length + 1), 10);
+      if (Number.isFinite(num) && num > seq) seq = num;
+    });
+    let next = seq + 1;
+    let candidate = `${prefix}-${String(next).padStart(4, '0')}`;
+    while (existing.has(candidate)) {
+      next += 1;
+      candidate = `${prefix}-${String(next).padStart(4, '0')}`;
+    }
+    setForm((prev) => ({ ...prev, sku: candidate }));
+  };
+
+  const kitCandidates = useMemo(
+    () => products.filter((item) => item.id && item.id !== product?.id),
+    [products, product?.id],
+  );
+
+  const kitEstimatedCost = useMemo(() => kitRows.reduce((sum, row) => {
+    const component = products.find((item) => item.id === row.product_id);
+    return sum + parseDecimal(row.quantity) * Number(component?.cost_price || 0);
+  }, 0), [kitRows, products]);
+
+  const addKitComponent = () => {
+    const target = products.find((item) => item.id === kitDraft.product_id);
+    if (!target) return;
+    const quantity = parseDecimal(kitDraft.quantity) || 1;
+    setKitRows((prev) => {
+      const exists = prev.some((row) => row.product_id === target.id);
+      if (exists) return prev.map((row) => (row.product_id === target.id ? { ...row, quantity } : row));
+      return [...prev, { product_id: target.id, product_name: target.name, quantity }];
+    });
+    setKitDraft({ product_id: '', quantity: 1 });
+  };
+
+  const removeKitComponent = (productId) => {
+    setKitRows((prev) => prev.filter((row) => row.product_id !== productId));
+  };
+
+  const isVariation = !!variationSource || !!product?.variant_label;
 
   const prices = useMemo(() => computedPrices(form), [form]);
   const usesArea = form.dimensions_required || form.pricing_mode === 'area_m2';
+  const trackArea = usesArea && !!form.track_area_stock;
   const priceOk = usesArea ? prices.salePerM2 > prices.costPerM2 && prices.costPerM2 > 0 : prices.sale > prices.cost && prices.cost > 0;
 
   const submit = (event) => {
@@ -164,6 +253,8 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
       sale_price: roundCurrency(prices.sale),
       pricing_mode: usesArea ? 'area_m2' : form.pricing_mode,
       dimensions_required: usesArea,
+      track_area_stock: trackArea,
+      min_stock_m2: trackArea ? parseDecimal(form.min_stock_m2) : 0,
       price_per_m2: usesArea ? prices.salePerM2 : roundCurrency(form.price_per_m2),
       material_cost_m2: usesArea ? prices.costPerM2 : 0,
       default_markup_pct: parseDecimal(form.default_markup_pct),
@@ -178,6 +269,13 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
       machine_cost_per_min: 0,
       default_art_cost: 0,
       art_template_notes: '',
+      variant_group_id: form.variant_group_id || '',
+      variant_label: String(form.variant_label || '').trim(),
+      image_url: String(form.image_url || '').trim(),
+      is_kit: !!form.is_kit,
+      kit_components: form.is_kit && kitRows.length
+        ? JSON.stringify(kitRows.map((row) => ({ product_id: row.product_id, product_name: row.product_name, quantity: parseDecimal(row.quantity) || 0 })))
+        : '',
     };
     onSubmit(payload);
   };
@@ -191,8 +289,13 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
               <Box className="h-5 w-5" />
             </span>
             <div>
-              <DialogTitle className="text-lg font-black text-slate-900">{product ? 'Editar produto' : 'Novo produto'}</DialogTitle>
-              <p className="mt-1 text-sm text-slate-500">Ficha unica para estoque, orçamento, venda e tabela de material. Maquina e mao de obra ficam na aba Precificacao.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle className="text-lg font-black text-slate-900">{variationSource ? 'Nova variacao' : product ? 'Editar produto' : 'Novo produto'}</DialogTitle>
+                {variationSource && <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-black text-purple-700">Variacao de {variationSource.name}</span>}
+                {!variationSource && product?.variant_label && <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-black text-purple-700">Variacao: {product.variant_label}</span>}
+                {!variationSource && product?.is_kit && <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-black text-amber-700">Kit</span>}
+              </div>
+              <p className="mt-1 text-sm text-slate-500">{variationSource ? 'Copia do produto original com saldo zerado. Ajuste o rotulo da variacao, SKU e precos.' : 'Ficha unica para estoque, orçamento, venda e tabela de material. Maquina e mao de obra ficam na aba Precificacao.'}</p>
             </div>
           </div>
         </div>
@@ -204,13 +307,32 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
                 <div className="md:col-span-2">
                   <Field label="Nome *"><Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required placeholder="Ex: Acrilico transparente 2mm" /></Field>
                 </div>
-                <Field label="SKU"><Input value={form.sku} onChange={(event) => setForm((prev) => ({ ...prev, sku: event.target.value }))} /></Field>
+                <Field label="SKU">
+                  <div className="flex gap-2">
+                    <Input value={form.sku} onChange={(event) => setForm((prev) => ({ ...prev, sku: event.target.value }))} className="flex-1" />
+                    {!String(form.sku || '').trim() && (
+                      <Button type="button" variant="outline" onClick={generateSku} className="shrink-0 px-3" title="Gerar SKU automatico pela categoria">Gerar</Button>
+                    )}
+                  </div>
+                </Field>
                 <Field label="Codigo de barras"><Input value={form.barcode} onChange={(event) => setForm((prev) => ({ ...prev, barcode: event.target.value }))} /></Field>
+                {isVariation && (
+                  <div className="md:col-span-2">
+                    <Field label={variationSource ? 'Nome da variacao *' : 'Nome da variacao'} help="Ex: Preto 3mm. Identifica esta variacao dentro do grupo.">
+                      <Input value={form.variant_label || ''} onChange={(event) => setForm((prev) => ({ ...prev, variant_label: event.target.value }))} required={!!variationSource} placeholder="Preto 3mm" />
+                    </Field>
+                  </div>
+                )}
                 <div className="md:col-span-2"><CategoryField value={form.category} categories={categories} onChange={(value) => setForm((prev) => ({ ...prev, category: value }))} onCreateCategory={onCreateCategory} /></div>
                 <Field label="Grupo comercial" help="Usado em filtros, margem e relatorios."><Input value={form.product_group} onChange={(event) => setForm((prev) => ({ ...prev, product_group: event.target.value }))} placeholder="Acrilico, MDF, brindes..." /></Field>
                 <Field label="Fornecedor"><Input value={form.supplier_name} onChange={(event) => setForm((prev) => ({ ...prev, supplier_name: event.target.value }))} /></Field>
                 <div className="md:col-span-4">
                   <Field label="Descricao"><Textarea value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} className="min-h-20" /></Field>
+                </div>
+                <div className="md:col-span-4">
+                  <Field label={isVariation ? 'Imagem da variacao' : 'Imagem do produto'} help="Aparece na tabela de estoque e no seletor de venda.">
+                    <ImageUploadField value={form.image_url} onChange={(url) => setForm((prev) => ({ ...prev, image_url: url }))} label={form.name || 'Produto'} />
+                  </Field>
                 </div>
               </div>
             </Section>
@@ -225,8 +347,54 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
                 <Field label="Pode vender?"><Select value={String(form.can_sell)} onValueChange={(value) => setForm((prev) => ({ ...prev, can_sell: value === 'true' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{yesNoOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></Field>
                 <Field label="Controla estoque?"><Select value={String(form.track_stock)} onValueChange={(value) => setForm((prev) => ({ ...prev, track_stock: value === 'true' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{yesNoOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></Field>
                 <Field label="Baixa na venda?"><Select value={String(form.auto_deduct_on_sale)} onValueChange={(value) => setForm((prev) => ({ ...prev, auto_deduct_on_sale: value === 'true' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{yesNoOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></Field>
+                <Field label="E kit/combo?" help="Kit agrupa outros produtos que saem juntos na venda."><Select value={String(!!form.is_kit)} onValueChange={(value) => setForm((prev) => ({ ...prev, is_kit: value === 'true' }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{yesNoOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></Field>
               </div>
             </Section>
+
+            {form.is_kit && (
+              <Section icon={Boxes} title="Composicao (kit)" description="Componentes que formam este kit. A baixa de estoque dos componentes acontece na venda.">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_130px_auto]">
+                  <Field label="Componente">
+                    <Select value={kitDraft.product_id} onValueChange={(value) => setKitDraft((prev) => ({ ...prev, product_id: value }))}>
+                      <SelectTrigger><SelectValue placeholder="Escolha um produto" /></SelectTrigger>
+                      <SelectContent>
+                        {kitCandidates.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>{item.name}{item.sku ? ` (${item.sku})` : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Quantidade">
+                    <Input type="number" min="0.01" step="any" value={kitDraft.quantity} onChange={(event) => setKitDraft((prev) => ({ ...prev, quantity: event.target.value }))} />
+                  </Field>
+                  <div className="flex items-end">
+                    <Button type="button" variant="outline" onClick={addKitComponent} disabled={!kitDraft.product_id} className="h-10">
+                      <Plus className="h-4 w-4" /> Adicionar
+                    </Button>
+                  </div>
+                </div>
+                {kitRows.length === 0 && <p className="mt-3 text-sm text-slate-500">Nenhum componente adicionado ainda.</p>}
+                {kitRows.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {kitRows.map((row) => {
+                      const component = products.find((item) => item.id === row.product_id);
+                      return (
+                        <div key={row.product_id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-slate-800">{row.product_name || component?.name || row.product_id}</p>
+                            <p className="text-xs text-slate-500">{parseDecimal(row.quantity)} {component?.unit || 'un'} · custo unit. {money(component?.cost_price || 0)}</p>
+                          </div>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => removeKitComponent(row.product_id)} aria-label={`Remover ${row.product_name || 'componente'}`}>
+                            <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <p className="text-xs font-bold text-slate-600">Custo estimado dos componentes: {money(kitEstimatedCost)}</p>
+                  </div>
+                )}
+              </Section>
+            )}
 
             <Section icon={Ruler} title="3. Material, medidas e preco" description="Aqui fica apenas materia-prima e preco base. Operacao entra no orçamento por perfil e tempo.">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -246,9 +414,27 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
             </Section>
 
             <Section icon={Warehouse} title="4. Estoque e reposicao" description="Quantidade, minimo e localizacao para evitar vender o que nao existe.">
+              {usesArea && (
+                <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_180px] md:items-start">
+                    <div>
+                      <p className="text-sm font-black text-slate-800">Controlar estoque por area (m2)</p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">Ligado: o saldo deste item passa a ser a area disponivel em m2 (nao pecas). A entrada e feita por chapa e a baixa acontece pela medida da peca vendida.</p>
+                    </div>
+                    <Select value={String(!!form.track_area_stock)} onValueChange={(value) => setForm((prev) => ({ ...prev, track_area_stock: value === 'true', unit: value === 'true' ? 'm2' : prev.unit }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{yesNoOptions.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <Field label="Quantidade atual"><Input type="number" value={form.quantity} onChange={(event) => setForm((prev) => ({ ...prev, quantity: event.target.value }))} /></Field>
-                <Field label="Estoque minimo"><Input type="number" value={form.min_quantity} onChange={(event) => setForm((prev) => ({ ...prev, min_quantity: event.target.value }))} /></Field>
+                <Field label={trackArea ? 'Area disponivel (m2)' : 'Quantidade atual'} help={trackArea ? 'Saldo em m2. Baixa pela medida da peca vendida.' : undefined}><Input type="number" step="any" value={form.quantity} onChange={(event) => setForm((prev) => ({ ...prev, quantity: event.target.value }))} /></Field>
+                {trackArea ? (
+                  <Field label="Estoque minimo (m2)" help="Alerta quando o saldo em m2 fica abaixo deste valor."><Input type="number" step="any" value={form.min_stock_m2} onChange={(event) => setForm((prev) => ({ ...prev, min_stock_m2: event.target.value }))} /></Field>
+                ) : (
+                  <Field label="Estoque minimo"><Input type="number" value={form.min_quantity} onChange={(event) => setForm((prev) => ({ ...prev, min_quantity: event.target.value }))} /></Field>
+                )}
                 <Field label="Estoque maximo"><Input type="number" value={form.max_quantity} onChange={(event) => setForm((prev) => ({ ...prev, max_quantity: event.target.value }))} /></Field>
                 <Field label="Reposicao dias"><Input type="number" value={form.lead_time_days} onChange={(event) => setForm((prev) => ({ ...prev, lead_time_days: event.target.value }))} /></Field>
                 <div className="md:col-span-2"><Field label="Localizacao"><Input value={form.location || ''} onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))} placeholder="Prateleira, caixa, sala, estoque..." /></Field></div>
@@ -276,7 +462,7 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
                 <SummaryLine label="Uso" value={`${form.can_quote ? 'orcamento' : ''}${form.can_quote && form.can_sell ? ' + ' : ''}${form.can_sell ? 'venda' : ''}` || 'bloqueado'} tone={form.can_quote || form.can_sell ? 'blue' : 'amber'} />
                 <SummaryLine label="Precificacao" value={usesArea ? `${money(prices.salePerM2)} por m2` : `${money(prices.sale)} por ${form.unit || 'un'}`} tone={priceOk ? 'green' : 'amber'} />
                 <SummaryLine label="Custo" value={usesArea ? `${money(prices.costPerM2)} por m2` : money(prices.cost)} />
-                <SummaryLine label="Estoque" value={form.track_stock ? `${form.quantity || 0} ${form.unit || ''}` : 'sem controle'} />
+                <SummaryLine label="Estoque" value={form.track_stock ? (trackArea ? `${form.quantity || 0} m2 disponivel` : `${form.quantity || 0} ${form.unit || ''}`) : 'sem controle'} tone={trackArea ? 'blue' : 'slate'} />
               </div>
               {!priceOk && (
                 <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -295,7 +481,7 @@ export default function ProductFormDialog({ open, onClose, product = null, onSub
 
             <DialogFooter className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <Button type="button" variant="outline" onClick={onClose} className="w-full">Cancelar</Button>
-              <Button type="submit" disabled={saving || !form.name} className="w-full">{saving ? 'Salvando...' : product ? 'Salvar produto' : 'Criar produto'}</Button>
+              <Button type="submit" disabled={saving || !form.name} className="w-full">{saving ? 'Salvando...' : variationSource ? 'Criar variacao' : product ? 'Salvar produto' : 'Criar produto'}</Button>
             </DialogFooter>
           </aside>
         </form>

@@ -287,6 +287,11 @@ def main() -> None:
                 conn.execute(index_sql)
                 schema_statements.append(index_sql)
 
+            if entity_name == "User" and "email" in properties:
+                unique_sql = f"CREATE UNIQUE INDEX IF NOT EXISTS {q('ux_user_email')} ON {q(table_name)} ({q('email')});"
+                conn.execute(unique_sql)
+                schema_statements.append(unique_sql)
+
             imported_count = insert_rows(conn, table_name, properties, rows)
             manifest_tables.append(
                 {

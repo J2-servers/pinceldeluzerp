@@ -1,29 +1,29 @@
 /**
  * pages.config.js - Page routing configuration
- * 
+ *
  * This file is AUTO-GENERATED. Do not add imports or modify PAGES manually.
  * Pages are auto-registered when you create files in the ./pages/ folder.
- * 
+ *
  * THE ONLY EDITABLE VALUE: mainPage
  * This controls which page is the landing page (shown when users visit the app).
- * 
+ *
  * Example file structure:
- * 
+ *
  *   import HomePage from './pages/HomePage';
  *   import Dashboard from './pages/Dashboard';
  *   import Settings from './pages/Settings';
- *   
+ *
  *   export const PAGES = {
  *       "HomePage": HomePage,
  *       "Dashboard": Dashboard,
  *       "Settings": Settings,
  *   }
- *   
+ *
  *   export const pagesConfig = {
  *       mainPage: "HomePage",
  *       Pages: PAGES,
  *   };
- * 
+ *
  * Example with Layout (wraps all pages):
  *
  *   import Home from './pages/Home';
@@ -47,28 +47,33 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import Clientes from './pages/Clientes';
-import Configuracoes from './pages/Configuracoes';
-import Dashboard from './pages/Dashboard';
-import Estoque from './pages/Estoque';
-import Financeiro from './pages/Financeiro';
-import NotasFiscais from './pages/NotasFiscais';
-import Orcamentos from './pages/Orcamentos';
-import OrdensServico from './pages/OrdensServico';
-import Precificacao from './pages/Precificacao';
-import Producao from './pages/Producao';
-import Relatorios from './pages/Relatorios';
-import Vendas from './pages/Vendas';
-import WhatsApp from './pages/WhatsApp';
-import Agenda from './pages/Agenda';
-import Metas from './pages/Metas';
-import Patrimonio from './pages/Patrimonio';
-import Integracoes from './pages/Integracoes';
-import Usuarios from './pages/Usuarios';
-import MobileDashboard from './pages/MobileDashboard';
-import MobileDespesasDoDia from './pages/MobileDespesasDoDia';
-import MobileProjetosDoDia from './pages/MobileProjetosDoDia';
+import { lazy } from 'react';
 import __Layout from './Layout.jsx';
+
+// Cada pagina vira o proprio chunk JS, baixado so quando a rota e visitada.
+const Clientes = lazy(() => import('./pages/Clientes'));
+const Configuracoes = lazy(() => import('./pages/Configuracoes'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Estoque = lazy(() => import('./pages/Estoque'));
+const Financeiro = lazy(() => import('./pages/Financeiro'));
+const NotasFiscais = lazy(() => import('./pages/NotasFiscais'));
+const Orcamentos = lazy(() => import('./pages/Orcamentos'));
+const OrdensServico = lazy(() => import('./pages/OrdensServico'));
+const Precificacao = lazy(() => import('./pages/Precificacao'));
+const Producao = lazy(() => import('./pages/Producao'));
+const Relatorios = lazy(() => import('./pages/Relatorios'));
+const Vendas = lazy(() => import('./pages/Vendas'));
+const WhatsApp = lazy(() => import('./pages/WhatsApp'));
+const Agenda = lazy(() => import('./pages/Agenda'));
+const Metas = lazy(() => import('./pages/Metas'));
+const Patrimonio = lazy(() => import('./pages/Patrimonio'));
+const Integracoes = lazy(() => import('./pages/Integracoes'));
+const Usuarios = lazy(() => import('./pages/Usuarios'));
+const MobileDashboard = lazy(() => import('./pages/MobileDashboard'));
+const MobileDespesasDoDia = lazy(() => import('./pages/MobileDespesasDoDia'));
+const MobileProjetosDoDia = lazy(() => import('./pages/MobileProjetosDoDia'));
+const DRE = lazy(() => import('./pages/DRE'));
+const Auditoria = lazy(() => import('./pages/Auditoria'));
 
 
 export const PAGES = {
@@ -80,6 +85,7 @@ export const PAGES = {
     "Estoque": Estoque,
     "Clientes": Clientes,
     "Financeiro": Financeiro,
+    "DRE": DRE,
     "Relatorios": Relatorios,
     "Precificacao": Precificacao,
     "WhatsApp": WhatsApp,
@@ -89,6 +95,7 @@ export const PAGES = {
     "Patrimonio": Patrimonio,
     "Integracoes": Integracoes,
     "Usuarios": Usuarios,
+    "Auditoria": Auditoria,
     "MobileDashboard": MobileDashboard,
     "MobileDespesasDoDia": MobileDespesasDoDia,
     "MobileProjetosDoDia": MobileProjetosDoDia,

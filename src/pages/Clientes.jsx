@@ -7,10 +7,12 @@ import { toast } from '@/components/ui/app-toast';
 import { downloadCsv } from '@/lib/downloadUtils';
 import { sendWhatsAppMessage, whatsappResultMessage } from '@/lib/whatsappSender';
 import moment from 'moment';
+import { formatCurrency, parseDecimal } from '@/lib/numberFormat';
+import { formatCpfCnpj, isCpfCnpjLengthValid, onlyCpfCnpjDigits } from '@/components/clientes/cpfCnpjUtils';
 
 const paymentMethods = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'parcelado', 'boleto', 'crediario', 'transferencia'];
-const defaultForm = { name: '', phone: '', whatsapp: '', email: '', address: '', payment_method: 'pix', status: 'em_dia', notes: '' };
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const defaultForm = { name: '', phone: '', whatsapp: '', email: '', address: '', cpf_cnpj: '', credit_limit: '', payment_method: 'pix', status: 'em_dia', notes: '' };
+const money = formatCurrency;
 const text = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 const segmentBadge = { vip: 'badge-purple', ativo: 'badge-green', risco: 'badge-red', inativo: 'badge-orange' };
@@ -96,8 +98,8 @@ export default function Clientes() {
   const [filters, setFilters] = useState({ search: '', status: 'all', payment: 'all', segment: 'all' });
   const [formData, setFormData] = useState(defaultForm);
 
-  const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: () => erp.entities.Client.list('name') });
-  const { data: orders = [] } = useQuery({ queryKey: ['salesOrders'], queryFn: () => erp.entities.SalesOrder.list('-created_date', 500) });
+  const { data: clients = [] } = useQuery({ queryKey: ['clients', 'list', 'name'], queryFn: () => erp.entities.Client.list('name') });
+  const { data: orders = [] } = useQuery({ queryKey: ['salesOrders', 'list', '-created_date', 500], queryFn: () => erp.entities.SalesOrder.list('-created_date', 500) });
   const { data: receivables = [] } = useQuery({ queryKey: ['accountsReceivable'], queryFn: () => erp.entities.AccountReceivable.list('due_date') });
 
   const saveClient = useMutation({
@@ -131,33 +133,46 @@ export default function Clientes() {
     return { ...client, ordersCount: clientOrders.length, totalOrders, lastOrder, debt, segment };
   }), [clients, orders, receivables]);
 
-  const filtered = enriched.filter((client) => {
+  const filtered = useMemo(() => enriched.filter((client) => {
     const search = text([client.name, client.phone, client.whatsapp, client.email].join(' '));
     return (!filters.search || search.includes(text(filters.search))) &&
       (filters.status === 'all' || client.status === filters.status) &&
       (filters.payment === 'all' || client.payment_method === filters.payment) &&
       (filters.segment === 'all' || client.segment === filters.segment);
-  });
+  }), [enriched, filters]);
 
-  const stats = {
-    total: clients.length,
-    active: enriched.filter((c) => c.segment === 'ativo').length,
-    vip: enriched.filter((c) => c.segment === 'vip').length,
-    risk: enriched.filter((c) => c.segment === 'risco').length,
-    inactive: enriched.filter((c) => c.segment === 'inativo').length,
-    debt: enriched.reduce((sum, c) => sum + c.debt, 0),
-    revenue: enriched.reduce((sum, c) => sum + c.totalOrders, 0),
-    avgTicket: enriched.filter((c) => c.totalOrders > 0).length > 0
-      ? enriched.reduce((sum, c) => sum + c.totalOrders, 0) / enriched.filter((c) => c.totalOrders > 0).length
-      : 0,
-  };
+  const stats = useMemo(() => {
+    const withRevenue = enriched.filter((c) => c.totalOrders > 0);
+    const revenue = enriched.reduce((sum, c) => sum + c.totalOrders, 0);
+    return {
+      total: clients.length,
+      active: enriched.filter((c) => c.segment === 'ativo').length,
+      vip: enriched.filter((c) => c.segment === 'vip').length,
+      risk: enriched.filter((c) => c.segment === 'risco').length,
+      inactive: enriched.filter((c) => c.segment === 'inativo').length,
+      debt: enriched.reduce((sum, c) => sum + c.debt, 0),
+      revenue,
+      avgTicket: withRevenue.length > 0 ? revenue / withRevenue.length : 0,
+    };
+  }, [enriched, clients.length]);
 
-  const topClients = [...enriched].sort((a, b) => b.totalOrders - a.totalOrders).slice(0, 6);
+  const topClients = useMemo(() => [...enriched].sort((a, b) => b.totalOrders - a.totalOrders).slice(0, 6), [enriched]);
 
   const openForm = (client = null) => {
     setSelectedClient(client);
-    setFormData(client ? { ...defaultForm, ...client } : defaultForm);
+    setFormData(client
+      ? { ...defaultForm, ...client, cpf_cnpj: onlyCpfCnpjDigits(client.cpf_cnpj), credit_limit: client.credit_limit ?? '' }
+      : defaultForm);
     setShowForm(true);
+  };
+
+  const submitForm = (e) => {
+    e.preventDefault();
+    if (!isCpfCnpjLengthValid(formData.cpf_cnpj)) {
+      toast.error('CPF/CNPJ incompleto: use 11 (CPF) ou 14 (CNPJ) dígitos');
+      return;
+    }
+    saveClient.mutate({ ...formData, cpf_cnpj: onlyCpfCnpjDigits(formData.cpf_cnpj), credit_limit: parseDecimal(formData.credit_limit) });
   };
 
   const sendWhatsApp = async (client, collection = false) => {
@@ -311,7 +326,14 @@ export default function Clientes() {
                         <span className={segmentBadge[client.segment] || 'badge-blue'}>{segmentLabel[client.segment] || client.segment}</span>
                       </td>
                       <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: 13, color: 'var(--green)' }}>{money(client.totalOrders)}</td>
-                      <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: 13, color: client.debt > 0 ? 'var(--red)' : 'var(--text-tertiary)' }}>{money(client.debt)}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: client.debt > 0 ? 'var(--red)' : 'var(--text-tertiary)' }}>{money(client.debt)}</div>
+                        {Number(client.credit_limit) > 0 && (
+                          <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: client.debt >= Number(client.credit_limit) ? 'var(--red)' : 'var(--text-tertiary)' }}>
+                            Crédito: {money(client.debt)} / {money(client.credit_limit)}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button
@@ -441,7 +463,7 @@ export default function Clientes() {
             <div className="section-divider" style={{ margin: '20px 0 0' }} />
 
             <form
-              onSubmit={(e) => { e.preventDefault(); saveClient.mutate(formData); }}
+              onSubmit={submitForm}
               style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}
             >
               <NmInput label="Nome" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Nome completo" required />
@@ -453,6 +475,28 @@ export default function Clientes() {
 
               <NmInput label="Email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" type="email" />
               <NmInput label="Endereço" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Rua, número, bairro..." />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <NmInput
+                    label="CPF/CNPJ"
+                    value={formatCpfCnpj(formData.cpf_cnpj)}
+                    onChange={(e) => setFormData({ ...formData, cpf_cnpj: onlyCpfCnpjDigits(e.target.value) })}
+                    placeholder="000.000.000-00"
+                  />
+                  {!isCpfCnpjLengthValid(formData.cpf_cnpj) && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)' }}>
+                      CPF/CNPJ incompleto: use 11 (CPF) ou 14 (CNPJ) dígitos
+                    </span>
+                  )}
+                </div>
+                <NmInput
+                  label="Limite de crédito (R$)"
+                  value={formData.credit_limit}
+                  onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <NmSelect label="Pagamento" value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}>

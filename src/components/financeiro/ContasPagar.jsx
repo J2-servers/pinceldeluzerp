@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import GlassCard from '@/components/ui/GlassCard';
@@ -12,14 +12,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Trash2, Edit } from 'lucide-react';
 import moment from 'moment';
 import { toast } from '@/components/ui/app-toast';
+import ConfirmDialog from '@/components/ui/confirm-dialog';
+import { createAuditLog } from '@/lib/erpCoreSync';
 import { formatCurrency, parseDecimal, roundCurrency } from '@/lib/numberFormat';
+import { PARTNERS } from '@/lib/financeConstants';
 
 const CATEGORIES = [
   'fornecedores','aluguel','salarios','impostos','manutencao','materiais','energia','internet','agua','gas','contabilidade','marketing','software','outros'
 ];
 const COST_CENTERS = ['producao','administrativo','comercial','geral'];
 const PAYMENT_METHODS = ['pix','dinheiro','cartao_credito','boleto','transferencia','debito_automatico'];
-const PARTNERS = ['Maeli', 'Wesley', 'Juliano'];
 
 const emptyForm = {
   description: '',
@@ -44,6 +46,7 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
   const [statusFilter, setStatusFilter] = useState(filterStatus);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const { data: payables = [] } = useQuery({
     queryKey: ['accountsPayable'],
@@ -73,8 +76,16 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
   });
 
   const deletePayable = useMutation({
-    mutationFn: (id) => erp.entities.AccountPayable.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['accountsPayable'])
+    mutationFn: async (payable) => {
+      await createAuditLog({
+        module: 'financeiro', entity_name: 'AccountPayable', entity_id: payable.id, action: 'delete',
+        document_number: payable.description || payable.supplier_name || '',
+        metadata: { amount: payable.amount, due_date: payable.due_date, category: payable.category, paid: payable.paid },
+      });
+      return erp.entities.AccountPayable.delete(payable.id);
+    },
+    onSuccess: () => { queryClient.invalidateQueries(['accountsPayable']); toast.success('Conta excluida'); },
+    onError: (error) => toast.error(error.message || 'Nao foi possivel excluir'),
   });
 
   const markPaid = async (id, partner) => {
@@ -107,16 +118,18 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
 
   const today = moment().format('YYYY-MM-DD');
 
-  const filtered = payables.filter(p => {
+  const filtered = useMemo(() => payables.filter(p => {
     const matchSearch = p.description?.toLowerCase().includes(search.toLowerCase()) || p.supplier_name?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' && !p.paid) || (statusFilter === 'paid' && p.paid) || (statusFilter === 'overdue' && !p.paid && p.due_date < today);
     const matchCat = categoryFilter === 'all' || p.category === categoryFilter;
     return matchSearch && matchStatus && matchCat;
-  });
+  }), [payables, search, statusFilter, categoryFilter, today]);
 
-  const totalPending = payables.filter(p => !p.paid).reduce((s, p) => s + parseDecimal(p.amount), 0);
-  const totalOverdue = payables.filter(p => !p.paid && p.due_date < today).reduce((s, p) => s + parseDecimal(p.amount), 0);
-  const totalPaidMonth = payables.filter(p => p.paid && moment(p.paid_date).isSame(moment(), 'month')).reduce((s, p) => s + parseDecimal(p.amount), 0);
+  const { totalPending, totalOverdue, totalPaidMonth } = useMemo(() => ({
+    totalPending: payables.filter(p => !p.paid).reduce((s, p) => s + parseDecimal(p.amount), 0),
+    totalOverdue: payables.filter(p => !p.paid && p.due_date < today).reduce((s, p) => s + parseDecimal(p.amount), 0),
+    totalPaidMonth: payables.filter(p => p.paid && moment(p.paid_date).isSame(moment(), 'month')).reduce((s, p) => s + parseDecimal(p.amount), 0),
+  }), [payables, today]);
 
   const fmt = formatCurrency;
 
@@ -137,12 +150,12 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
           <p className="text-2xl font-bold" style={{ color: 'var(--red)' }}>{fmt(totalOverdue)}</p>
         </GlassCard>
         <GlassCard className="text-center">
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Pago este mês</p>
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Pago este mï¿½s</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--green)' }}>{fmt(totalPaidMonth)}</p>
         </GlassCard>
       </div>
 
-      {/* Filtros + Ação */}
+      {/* Filtros + Aï¿½ï¿½o */}
       <GlassCard>
         <div className="flex flex-wrap gap-3 items-center justify-between">
           <div className="flex flex-wrap gap-3">
@@ -176,7 +189,7 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
           <Table>
             <TableHeader>
               <TableRow style={{ borderColor: 'var(--border)' }}>
-                <TableHead style={{ color: 'var(--text-tertiary)' }}>Descrição</TableHead>
+                <TableHead style={{ color: 'var(--text-tertiary)' }}>Descriï¿½ï¿½o</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Fornecedor</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>Categoria</TableHead>
                 <TableHead style={{ color: 'var(--text-tertiary)' }}>C. Custo</TableHead>
@@ -229,7 +242,7 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
                           <Edit className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deletePayable.mutate(p.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPendingDelete(p)}>
                           <Trash2 className="w-3 h-3" style={{ color: 'var(--red)' }} />
                         </Button>
                       </div>
@@ -254,7 +267,7 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
           <form onSubmit={(e) => { e.preventDefault(); createPayable.mutate(form); }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2">
-                <Label>Descrição *</Label>
+                <Label>Descriï¿½ï¿½o *</Label>
                 <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="" required />
               </div>
               <div className="space-y-2">
@@ -291,7 +304,7 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
                 <Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} className="" required />
               </div>
               <div className="space-y-2">
-                <Label>Competência</Label>
+                <Label>Competï¿½ncia</Label>
                 <Input type="date" value={form.competence_date} onChange={e => setForm({ ...form, competence_date: e.target.value })} className="" />
               </div>
               <div className="space-y-2">
@@ -299,11 +312,11 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
                 <Input type="number" min="1" value={form.installments} onChange={e => setForm({ ...form, installments: e.target.value })} className="" />
               </div>
               <div className="space-y-2">
-                <Label>Parcela Nº</Label>
+                <Label>Parcela Nï¿½</Label>
                 <Input type="number" min="1" value={form.installment_number} onChange={e => setForm({ ...form, installment_number: e.target.value })} className="" />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Observações</Label>
+                <Label>Observaï¿½ï¿½es</Label>
                 <Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="" />
               </div>
             </div>
@@ -353,6 +366,14 @@ export default function ContasPagar({ filterStatus = 'pending' }) {
           </DialogContent>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(value) => !value && setPendingDelete(null)}
+        title="Excluir conta a pagar?"
+        description={pendingDelete ? `${pendingDelete.description || pendingDelete.supplier_name || 'Conta'} - ${fmt(pendingDelete.amount)}. Fica registrada na auditoria e nao pode ser desfeita.` : ''}
+        onConfirm={() => { deletePayable.mutate(pendingDelete); setPendingDelete(null); }}
+      />
     </div>
   );
 }

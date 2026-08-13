@@ -4,9 +4,6 @@ import { erp } from '@/api/erpClient';
 import Header from '@/components/layout/Header';
 import { AlertTriangle, Calendar, CheckCircle, ChevronLeft, ChevronRight, Clock, Plus, Trash2, X } from 'lucide-react';
 import moment from 'moment';
-import 'moment/locale/pt-br';
-
-moment.locale('pt-br');
 
 const defaultForm = { title: '', type: 'tarefa', date: moment().format('YYYY-MM-DD'), time: '', description: '', completed: false };
 const typeConfig = {
@@ -57,15 +54,43 @@ export default function Agenda() {
     return days;
   }, [currentDate]);
 
-  const visibleEvents = filterType === 'all' ? events : events.filter((event) => event.type === filterType);
-  const upcoming = visibleEvents.filter((event) => !event.completed && moment(event.date).isSameOrAfter(moment(), 'day')).sort((a, b) => moment(a.date).diff(moment(b.date))).slice(0, 10);
-  const todayEvents = visibleEvents.filter((event) => moment(event.date).isSame(moment(), 'day'));
-  const overdue = visibleEvents.filter((event) => !event.completed && moment(event.date).isBefore(moment(), 'day'));
-  const completed = visibleEvents.filter((event) => event.completed).length;
+  const today = moment().format('YYYY-MM-DD');
+  const visibleEvents = useMemo(
+    () => (filterType === 'all' ? events : events.filter((event) => event.type === filterType)),
+    [events, filterType]
+  );
+  const eventsByDay = useMemo(() => {
+    const map = new Map();
+    visibleEvents.forEach((event) => {
+      const key = moment(event.date).format('YYYY-MM-DD');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(event);
+    });
+    return map;
+  }, [visibleEvents]);
+  // `today` nao e lido dentro dos callbacks abaixo (que usam moment() direto),
+  // mas forca o recalculo quando o dia civil muda — sem isso as listas ficam
+  // presas no dia em que a pagina foi aberta.
+  const upcoming = useMemo(
+    () => visibleEvents.filter((event) => !event.completed && moment(event.date).isSameOrAfter(moment(), 'day')).sort((a, b) => moment(a.date).diff(moment(b.date))).slice(0, 10),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleEvents, today]
+  );
+  const todayEvents = useMemo(
+    () => visibleEvents.filter((event) => moment(event.date).isSame(moment(), 'day')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleEvents, today]
+  );
+  const overdue = useMemo(
+    () => visibleEvents.filter((event) => !event.completed && moment(event.date).isBefore(moment(), 'day')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleEvents, today]
+  );
+  const completed = useMemo(() => visibleEvents.filter((event) => event.completed).length, [visibleEvents]);
 
   const openNew = (date = moment()) => { setSelectedEvent(null); setFormData({ ...defaultForm, date: date.format('YYYY-MM-DD') }); setShowForm(true); };
   const openEdit = (event) => { setSelectedEvent(event); setFormData({ ...defaultForm, ...event }); setShowForm(true); };
-  const eventsForDay = (date) => visibleEvents.filter((event) => moment(event.date).isSame(date, 'day'));
+  const eventsForDay = (date) => eventsByDay.get(date.format('YYYY-MM-DD')) || [];
 
   const kpis = [
     { icon: Calendar, label: 'Eventos hoje', value: todayEvents.length, color: 'var(--purple)' },
@@ -144,13 +169,14 @@ export default function Agenda() {
 
           {/* Grade do calendário */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-            {calendarDays.map(({ date, current }, index) => {
+            {calendarDays.map(({ date, current }) => {
               const dayEvents = eventsForDay(date);
               const isToday = date.isSame(moment(), 'day');
+              const dayKey = date.format('YYYY-MM-DD');
 
               return (
                 <button
-                  key={index}
+                  key={dayKey}
                   onClick={() => openNew(date)}
                   style={{
                     minHeight: 90,

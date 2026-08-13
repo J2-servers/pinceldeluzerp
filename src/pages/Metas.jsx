@@ -4,11 +4,12 @@ import { erp } from '@/api/erpClient';
 import Header from '@/components/layout/Header';
 import { AlertTriangle, CheckCircle, Edit, Plus, Target, Trash2, TrendingUp, X } from 'lucide-react';
 import moment from 'moment';
+import { formatCurrency } from '@/lib/numberFormat';
 
 const defaultForm = { title: '', target_value: 0, current_value: 0, type: 'vendas', deadline: '', completed: false };
 const types = { vendas: 'var(--green)', clientes: 'var(--accent)', lucro: 'var(--purple)', producao: 'var(--orange)', outros: 'var(--text-secondary)' };
 const typeLabels = { vendas: 'Vendas', clientes: 'Clientes', lucro: 'Lucro', producao: 'Produção', outros: 'Outros' };
-const money = (value) => `R$ ${(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const money = formatCurrency;
 const progressOf = (goal) => goal.target_value ? Math.min(100, (Number(goal.current_value || 0) / Number(goal.target_value || 1)) * 100) : 0;
 
 const filterOptions = [

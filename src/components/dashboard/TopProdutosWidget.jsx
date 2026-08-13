@@ -54,7 +54,7 @@ export default function TopProdutosWidget({ salesOrders = [] }) {
 
       <div className="space-y-3">
         {top.map((item, i) =>
-        <div key={i}>
+        <div key={item.name}>
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold w-4" style={{ color: colors[i] }}>#{i + 1}</span>

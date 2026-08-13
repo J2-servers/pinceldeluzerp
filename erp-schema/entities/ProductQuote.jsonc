@@ -269,6 +269,39 @@
         "Juliano"
       ],
       "description": "Criado por"
+    },
+    "revision": {
+      "type": "number",
+      "default": 1,
+      "description": "Número da revisão atual (incrementa a cada edição pós-envio)"
+    },
+    "option_group_id": {
+      "type": "string",
+      "description": "Agrupa orçamentos que são opções alternativas apresentadas ao mesmo cliente"
+    },
+    "option_label": {
+      "type": "string",
+      "description": "Rótulo da opção (ex.: Opção A - MDF, Opção B - Acrílico)"
+    },
+    "approved_by_name": {
+      "type": "string",
+      "description": "Nome de quem aprovou pelo cliente"
+    },
+    "approved_at": {
+      "type": "string",
+      "description": "Data/hora da aprovação (ISO)"
+    },
+    "approved_revision": {
+      "type": "number",
+      "description": "Número da revisão que foi aprovada e congelada"
+    },
+    "approval_note": {
+      "type": "string",
+      "description": "Observação registrada na aprovação"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "description": "Motivo registrado na reprovação"
     }
   },
   "required": [

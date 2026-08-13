@@ -13,6 +13,7 @@ import { inferProductBehavior } from '@/lib/productBehavior';
 import { computeLine, createLineDraft, money, summarizeDocument } from '@/lib/commercialLinePricing';
 import LineItemEditor from '@/components/commercial/LineItemEditor';
 import { getCompanyLogoUrl, isSafeImageUrl } from '@/lib/brandingAssets';
+import { PARTNERS } from '@/lib/financeConstants';
 
 const paymentMethods = [
   { value: 'pix', label: 'PIX' },
@@ -26,8 +27,11 @@ const paymentMethods = [
 
 const quoteHeader = {
   client_name: '',
+  client_id: '',
   client_phone: '',
   discount_pct: 0,
+  discount_value: 0,
+  additionals: [],
   general_art_cost: 0,
   additional_charge: 0,
   valid_days: 7,
@@ -35,18 +39,25 @@ const quoteHeader = {
   payment_conditions: '50% entrada, 50% na entrega',
   notes: '',
   internal_notes: '',
-  created_by_partner: 'Maeli',
+  created_by_partner: PARTNERS[0],
+  margin_override_reason: '',
   status: 'rascunho',
 };
 
 const saleHeader = {
   client_name: '',
+  client_id: '',
   payment_method: 'pix',
+  installments: 1,
   delivery_date: '',
   discount_percent: 0,
+  discount_value: 0,
+  additionals: [],
   general_art_cost: 0,
   additional_charge: 0,
   notes: '',
+  created_by_partner: PARTNERS[0],
+  margin_override_reason: '',
   status: 'novo',
   payment_status: 'pendente',
 };
@@ -110,24 +121,33 @@ function MissingAlerts({ alerts }) {
 }
 
 function HeaderFields({ mode, header, setHeader, clients, missingClient }) {
+  const showInstallments = mode === 'sale' && ['parcelado', 'crediario', 'cartao_credito', 'boleto'].includes(header.payment_method);
   return (
     <section className={`rounded-[28px] border p-4 shadow-sm ${missingClient ? 'border-red-200 bg-red-50' : 'border-sky-200 bg-sky-50'}`}>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
         <div className="lg:col-span-4">
           <Field label="Cliente" help="Obrigatorio para salvar ou enviar.">
-            <Input list="commercial-clients-list" className={`h-11 rounded-2xl bg-white ${missingClient ? 'border-red-400 ring-2 ring-red-100' : ''}`} value={header.client_name} onChange={(event) => setHeader((prev) => ({ ...prev, client_name: event.target.value }))} required placeholder="Nome do cliente" />
+            <Input list="commercial-clients-list" className={`h-11 rounded-2xl bg-white ${missingClient ? 'border-red-400 ring-2 ring-red-100' : ''}`} value={header.client_name} onChange={(event) => setHeader((prev) => ({ ...prev, client_name: event.target.value, client_id: '' }))} required placeholder="Nome do cliente" />
             <datalist id="commercial-clients-list">{clients.map((client) => <option key={client.id} value={client.name} />)}</datalist>
+          </Field>
+        </div>
+        <div className="lg:col-span-3">
+          <Field label="Socio responsavel" help="Quem fica com o credito desta venda.">
+            <Select value={header.created_by_partner} onValueChange={(value) => setHeader((prev) => ({ ...prev, created_by_partner: value }))}>
+              <SelectTrigger className="h-11 rounded-2xl"><SelectValue /></SelectTrigger>
+              <SelectContent>{PARTNERS.map((partner) => <SelectItem key={partner} value={partner}>{partner}</SelectItem>)}</SelectContent>
+            </Select>
           </Field>
         </div>
         {mode === 'quote' ? (
           <>
-            <div className="lg:col-span-3"><Field label="WhatsApp"><Input className="h-11 rounded-2xl" value={header.client_phone} onChange={(event) => setHeader((prev) => ({ ...prev, client_phone: event.target.value }))} placeholder="(00) 00000-0000" /></Field></div>
-            <div className="lg:col-span-2"><Field label="Validade"><Input className="h-11 rounded-2xl" type="number" min="1" value={header.valid_days} onChange={(event) => setHeader((prev) => ({ ...prev, valid_days: event.target.value }))} /></Field></div>
-            <div className="lg:col-span-3"><Field label="Prazo de producao"><Input className="h-11 rounded-2xl" type="number" min="0" value={header.deadline_days} onChange={(event) => setHeader((prev) => ({ ...prev, deadline_days: event.target.value }))} /></Field></div>
+            <div className="lg:col-span-2"><Field label="WhatsApp"><Input className="h-11 rounded-2xl" value={header.client_phone} onChange={(event) => setHeader((prev) => ({ ...prev, client_phone: event.target.value }))} placeholder="(00) 00000-0000" /></Field></div>
+            <div className="lg:col-span-1"><Field label="Validade"><Input className="h-11 rounded-2xl" type="number" min="1" value={header.valid_days} onChange={(event) => setHeader((prev) => ({ ...prev, valid_days: event.target.value }))} /></Field></div>
+            <div className="lg:col-span-2"><Field label="Prazo producao"><Input className="h-11 rounded-2xl" type="number" min="0" value={header.deadline_days} onChange={(event) => setHeader((prev) => ({ ...prev, deadline_days: event.target.value }))} /></Field></div>
           </>
         ) : (
           <>
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-3">
               <Field label="Pagamento">
                 <Select value={header.payment_method} onValueChange={(value) => setHeader((prev) => ({ ...prev, payment_method: value }))}>
                   <SelectTrigger className="h-11 rounded-2xl"><SelectValue /></SelectTrigger>
@@ -135,11 +155,35 @@ function HeaderFields({ mode, header, setHeader, clients, missingClient }) {
                 </Select>
               </Field>
             </div>
-            <div className="lg:col-span-4"><Field label="Entrega"><Input className="h-11 rounded-2xl" type="date" value={header.delivery_date} onChange={(event) => setHeader((prev) => ({ ...prev, delivery_date: event.target.value }))} /></Field></div>
+            {showInstallments && (
+              <div className="lg:col-span-1"><Field label="Parcelas"><Input className="h-11 rounded-2xl" type="number" min="1" max="36" value={header.installments} onChange={(event) => setHeader((prev) => ({ ...prev, installments: event.target.value }))} /></Field></div>
+            )}
+            <div className={showInstallments ? 'lg:col-span-1' : 'lg:col-span-2'}><Field label="Entrega"><Input className="h-11 rounded-2xl" type="date" value={header.delivery_date} onChange={(event) => setHeader((prev) => ({ ...prev, delivery_date: event.target.value }))} /></Field></div>
           </>
         )}
       </div>
     </section>
+  );
+}
+
+function AdditionalsEditor({ additionals, onChange }) {
+  const list = Array.isArray(additionals) ? additionals : [];
+  const update = (index, field, value) => onChange(list.map((item, current) => current === index ? { ...item, [field]: value } : item));
+  const add = () => onChange([...list, { label: '', value: '' }]);
+  const remove = (index) => onChange(list.filter((_, current) => current !== index));
+  return (
+    <div className="space-y-2">
+      {list.map((item, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <Input className="h-10 rounded-xl" value={item.label} onChange={(event) => update(index, 'label', event.target.value)} placeholder="Ex: Taxa de urgencia" />
+          <Input className="h-10 w-28 shrink-0 rounded-xl" type="number" step="0.01" min="0" value={item.value} onChange={(event) => update(index, 'value', event.target.value)} placeholder="R$" />
+          <button type="button" className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-50" onClick={() => remove(index)}><X className="h-4 w-4" /></button>
+        </div>
+      ))}
+      <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}>
+        <Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar servico/taxa
+      </button>
+    </div>
   );
 }
 
@@ -266,8 +310,17 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
   const { data: markupRules = [] } = useQuery({ queryKey: ['pricing-markup-rules'], queryFn: () => erp.entities.MarkupRule.list('name'), enabled: open });
   const { data: pricingSettingsRows = [] } = useQuery({ queryKey: ['pricing-settings'], queryFn: () => erp.entities.PricingSettings.list('-updated_date', 1), enabled: open });
   const { data: materialParameters = [] } = useQuery({ queryKey: ['pricing-material-parameters'], queryFn: () => erp.entities.MaterialParameter.filter({ active: true }), enabled: open });
+  const { data: priceRules = [] } = useQuery({ queryKey: ['pricing-price-rules'], queryFn: () => erp.entities.ProductPriceRule.filter({ active: true }), enabled: open });
+  const { data: volumePricing = [] } = useQuery({ queryKey: ['pricing-volume'], queryFn: () => erp.entities.VolumePricing.list('min_quantity'), enabled: open });
   const { data: companyConfigs = [] } = useQuery({ queryKey: ['companyConfig'], queryFn: () => erp.entities.CompanyConfig.list('-created_date', 1), enabled: open });
   const companyConfig = companyConfigs[0] || null;
+
+  // Resolve o id do cliente a partir do nome escolhido (regras de preco por cliente dependem disso).
+  const resolvedClientId = useMemo(() => {
+    if (header.client_id) return header.client_id;
+    const match = clients.find((client) => String(client.name || '').trim().toLowerCase() === String(header.client_name || '').trim().toLowerCase());
+    return match?.id || '';
+  }, [header.client_id, header.client_name, clients]);
 
   const pricingConfig = useMemo(() => ({
     fixedExpenses,
@@ -276,8 +329,11 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
     serviceProfiles,
     markupRules,
     materialParameters,
+    priceRules,
+    volumePricing,
+    clientId: resolvedClientId,
     settings: pricingSettingsRows[0] || {},
-  }), [fixedExpenses, machineCosts, laborProfiles, serviceProfiles, markupRules, materialParameters, pricingSettingsRows]);
+  }), [fixedExpenses, machineCosts, laborProfiles, serviceProfiles, markupRules, materialParameters, priceRules, volumePricing, resolvedClientId, pricingSettingsRows]);
 
   useEffect(() => {
     if (!open) return;
@@ -297,9 +353,23 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
   }, [selectedProduct, editorLine, pricingConfig]);
   const totals = useMemo(() => summarizeDocument(items, {
     discountPct: mode === 'sale' ? header.discount_percent : header.discount_pct,
+    discountValue: header.discount_value,
+    additionals: header.additionals,
     generalArtCost: header.general_art_cost,
     additionalCharge: header.additional_charge,
   }), [items, header, mode]);
+
+  // Menor margem minima entre os itens do documento — usada para avisar/bloquear
+  // quando o preco final fica abaixo do piso configurado por categoria.
+  const docMinMarginPct = useMemo(() => {
+    const values = items.map((item) => Number(item.min_margin_pct || 0)).filter((value) => value > 0);
+    return values.length ? Math.max(...values) : 0;
+  }, [items]);
+
+  const docMargin = Number(totals.totalFinal || 0) > 0
+    ? ((Number(totals.totalFinal || 0) - Number(totals.totalCost || 0)) / Number(totals.totalFinal || 1)) * 100
+    : 0;
+  const belowMinMargin = items.length > 0 && docMinMarginPct > 0 && docMargin >= 0 && docMargin < docMinMarginPct;
 
   const alerts = useMemo(() => {
     const list = [];
@@ -309,10 +379,13 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
       if (Number(item.total || 0) <= 0) list.push(`${item.product_name || 'Item'} esta sem valor final.`);
       if (item.pricing_mode === 'area_m2' && (!item.width_mm || !item.height_mm)) list.push(`${item.product_name || 'Item'} precisa de largura e altura.`);
     });
-    const margin = Number(totals.totalFinal || 0) > 0 ? ((Number(totals.totalFinal || 0) - Number(totals.totalCost || 0)) / Number(totals.totalFinal || 1)) * 100 : 0;
-    if (items.length && margin < 0) list.push('Margem negativa.');
+    if (items.length && docMargin < 0) list.push('Margem negativa: preco final abaixo do custo.');
+    // Abaixo da margem minima nao bloqueia, mas exige justificativa para liberar.
+    if (belowMinMargin && !String(header.margin_override_reason || '').trim()) {
+      list.push(`Margem ${docMargin.toFixed(1)}% abaixo do minimo de ${docMinMarginPct.toFixed(0)}%. Justifique para liberar.`);
+    }
     return list;
-  }, [header.client_name, items, totals]);
+  }, [header.client_name, header.margin_override_reason, items, docMargin, belowMinMargin, docMinMarginPct]);
 
   const startProduct = (product) => {
     setSelectedProductId(product.id);
@@ -347,7 +420,7 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
 
   const submitDocument = (action = 'save') => {
     if (alerts.length) return;
-    onSubmit({ header, items, totals, action });
+    onSubmit({ header: { ...header, client_id: resolvedClientId }, items, totals, action });
   };
 
   const submit = (event) => {
@@ -441,13 +514,34 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
                 <aside className="space-y-4">
                   <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                    <Field label="Desconto">
-                      <Input className="h-11 rounded-2xl" type="number" min="0" value={mode === 'sale' ? header.discount_percent : header.discount_pct} onChange={(event) => setHeader((prev) => ({ ...prev, [mode === 'sale' ? 'discount_percent' : 'discount_pct']: event.target.value }))} />
-                    </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Desconto %">
+                        <Input className="h-11 rounded-2xl" type="number" min="0" max="100" value={mode === 'sale' ? header.discount_percent : header.discount_pct} onChange={(event) => setHeader((prev) => ({ ...prev, [mode === 'sale' ? 'discount_percent' : 'discount_pct']: event.target.value }))} />
+                      </Field>
+                      <Field label="Desconto R$">
+                        <Input className="h-11 rounded-2xl" type="number" step="0.01" min="0" value={header.discount_value} onChange={(event) => setHeader((prev) => ({ ...prev, discount_value: event.target.value }))} />
+                      </Field>
+                    </div>
+                    <div className="mt-3">
+                      <Field label="Servicos e taxas adicionais" help="Somam ao total do documento.">
+                        <AdditionalsEditor additionals={header.additionals} onChange={(next) => setHeader((prev) => ({ ...prev, additionals: next }))} />
+                      </Field>
+                    </div>
                     <div className="mt-4 rounded-[24px] p-5 text-white [background:linear-gradient(135deg,#020617,#1e1b4b)]">
                       <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Total final</p>
                       <p className="mt-2 text-3xl font-black">{money(totals.totalFinal)}</p>
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Custo {money(totals.totalCost)}</span>
+                        <span className={`font-black ${docMargin < 0 ? 'text-red-300' : belowMinMargin ? 'text-amber-300' : 'text-emerald-300'}`}>Margem {docMargin.toFixed(1)}%{docMinMarginPct > 0 ? ` / min ${docMinMarginPct.toFixed(0)}%` : ''}</span>
+                      </div>
                     </div>
+                    {belowMinMargin && (
+                      <div className="mt-3">
+                        <Field label="Justificativa da margem baixa" help="Obrigatoria para liberar preco abaixo do minimo.">
+                          <Textarea className="min-h-16 rounded-2xl" value={header.margin_override_reason} onChange={(event) => setHeader((prev) => ({ ...prev, margin_override_reason: event.target.value }))} placeholder="Ex: cliente recorrente, pedido grande, fechamento de mes." />
+                        </Field>
+                      </div>
+                    )}
                     <div className="mt-3"><MissingAlerts alerts={alerts} /></div>
                     <Button type="button" className="mt-4 min-h-12 w-full rounded-2xl !text-white shadow-lg shadow-blue-200 [background:linear-gradient(135deg,#2563eb,#7c3aed,#db2777)] hover:brightness-110 disabled:opacity-100 disabled:saturate-50" disabled={saving || alerts.length > 0} onClick={() => submitDocument('save')}>
                       <FileText className="h-4 w-4" /> {saving ? 'Salvando...' : mode === 'sale' ? 'Salvar venda' : 'Salvar orcamento'}

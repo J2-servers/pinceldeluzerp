@@ -3,12 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { erp } from '@/api/erpClient';
 import { AlertCircle, Package, CreditCard, Clock, TrendingDown, ShoppingBag, CheckCircle } from 'lucide-react';
 import moment from 'moment';
-import 'moment/locale/pt-br';
-moment.locale('pt-br');
+import { formatCurrency } from '@/lib/numberFormat';
 
 const TODAY = moment().format('YYYY-MM-DD');
 const WEEK_END = moment().add(7, 'days').format('YYYY-MM-DD');
-const fmt = v => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const fmt = formatCurrency;
 
 export default function MobileDespesasDoDia() {
   const queryClient = useQueryClient();
@@ -48,7 +47,7 @@ export default function MobileDespesasDoDia() {
       <div className="px-4 pt-12 pb-4">
         <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--text-tertiary)' }}>{moment().format('dddd, D [de] MMMM')}</p>
         <h1 className="font-bold text-2xl mt-1" style={{ color: 'var(--text-primary)' }}>Despesas do Dia</h1>
-        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Contas e estoque crítico</p>
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Contas e estoque crÃ­tico</p>
       </div>
 
       {/* KPIs */}
@@ -56,8 +55,8 @@ export default function MobileDespesasDoDia() {
         {[
           { label: 'Vencidas', value: overduePayables.length, sub: fmt(totalOverdue), color: '#ef4444', border: 'rgba(239,68,68,0.3)', icon: AlertCircle },
           { label: 'Vence Hoje', value: dueTodayPayables.length, sub: fmt(totalToday), color: '#f97316', border: 'rgba(249,115,22,0.3)', icon: Clock },
-          { label: 'Próx. 7 dias', value: dueWeekPayables.length, sub: fmt(totalWeek), color: '#ca8a04', border: 'rgba(234,179,8,0.3)', icon: CreditCard },
-          { label: 'Estoque Crítico', value: lowStock.length, sub: `${urgentStock.length} zerados`, color: '#7c3aed', border: 'rgba(124,58,237,0.3)', icon: Package },
+          { label: 'PrÃ³x. 7 dias', value: dueWeekPayables.length, sub: fmt(totalWeek), color: '#ca8a04', border: 'rgba(234,179,8,0.3)', icon: CreditCard },
+          { label: 'Estoque CrÃ­tico', value: lowStock.length, sub: `${urgentStock.length} zerados`, color: '#7c3aed', border: 'rgba(124,58,237,0.3)', icon: Package },
         ].map(kpi => (
           <div key={kpi.label} className="rounded-2xl p-4 flex items-center gap-3"
             style={{ background: 'var(--bg)', border: `1.5px solid ${kpi.border}`, boxShadow: '6px 6px 18px rgba(174,190,220,0.35), -3px -3px 10px rgba(255,255,255,1)' }}>
@@ -80,7 +79,7 @@ export default function MobileDespesasDoDia() {
             <CheckCircle className="w-8 h-8" style={{ color: '#16a34a' }} />
           </div>
           <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Tudo em ordem!</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>Sem contas vencidas ou estoque crítico</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>Sem contas vencidas ou estoque crÃ­tico</p>
         </div>
       )}
 
@@ -102,7 +101,7 @@ export default function MobileDespesasDoDia() {
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{p.description}</p>
                     {p.supplier_name && <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{p.supplier_name}</p>}
                     <p className="text-[10px] mt-1 font-semibold" style={{ color: '#dc2626' }}>
-                      Venceu {moment(p.due_date).format('DD/MM/YY')} · {moment(p.due_date).fromNow()}
+                      Venceu {moment(p.due_date).format('DD/MM/YY')} Â· {moment(p.due_date).fromNow()}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -160,13 +159,13 @@ export default function MobileDespesasDoDia() {
         </section>
       )}
 
-      {/* Próximos 7 dias */}
+      {/* PrÃ³ximos 7 dias */}
       {dueWeekPayables.length > 0 && (
         <section className="px-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-4 h-4" style={{ color: '#ca8a04' }} />
-              <h2 className="font-bold text-sm" style={{ color: '#ca8a04' }}>Próximos 7 Dias</h2>
+              <h2 className="font-bold text-sm" style={{ color: '#ca8a04' }}>PrÃ³ximos 7 Dias</h2>
             </div>
             <span className="text-xs font-bold" style={{ color: '#ca8a04' }}>{fmt(totalWeek)}</span>
           </div>
@@ -184,7 +183,7 @@ export default function MobileDespesasDoDia() {
         </section>
       )}
 
-      {/* Estoque Crítico */}
+      {/* Estoque CrÃ­tico */}
       {lowStock.length > 0 && (
         <section className="px-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
@@ -200,7 +199,7 @@ export default function MobileDespesasDoDia() {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-sm" style={{ color: '#dc2626' }}>ZERADO</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>mín {p.min_quantity || 5} {p.unit}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>mÃ­n {p.min_quantity || 5} {p.unit}</p>
                 </div>
               </div>
             ))}
@@ -212,7 +211,7 @@ export default function MobileDespesasDoDia() {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-sm" style={{ color: '#7c3aed' }}>{p.quantity} {p.unit}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>mín {p.min_quantity || 5}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>mÃ­n {p.min_quantity || 5}</p>
                 </div>
               </div>
             ))}
