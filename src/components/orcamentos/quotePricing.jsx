@@ -5,8 +5,6 @@ export const MATERIAL_CATEGORY_MAP = {
   acrilico: 'acrilico',
   mdf: 'mdf',
   compensado: 'mdf',
-  tecido: 'tecido',
-  couro: 'couro',
   metal: 'metal',
   vidro: 'vidro',
   borracha: 'borracha',
