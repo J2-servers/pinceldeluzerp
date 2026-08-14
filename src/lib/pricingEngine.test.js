@@ -226,6 +226,26 @@ describe('computeCommercialLine', () => {
     expect(withMaterials.base_subtotal).toBeGreaterThan(base.base_subtotal);
   });
 
+  it('adds itemized labor steps and machine operations, honoring setup (fixed) vs per-unit', () => {
+    const product = { id: 'p1', name: 'Produto Teste', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
+    const base = computeCommercialLine(product, { quantity: 3 }, {});
+    const withOps = computeCommercialLine(product, {
+      quantity: 3,
+      labor_steps: [
+        { name: 'Preparo', minutes: 10, cost_per_hour: 60, is_setup: true }, // fixo: 10/60*60 = 10
+        { name: 'Montagem', minutes: 5, cost_per_hour: 60 },                  // x qtd: 5/60*60 * 3 = 15
+      ],
+      machine_ops: [
+        { name: 'Corte', minutes: 4, cost_per_min: 2 },                       // x qtd: 4*2*3 = 24
+        { name: 'Gravacao', length_m: 1.5, rate_per_m: 10, is_setup: true },  // fixo: 1.5*10 = 15
+      ],
+    }, {});
+    expect(withOps.labor_steps_cost).toBe(25);
+    expect(withOps.machine_ops_cost).toBe(39);
+    expect(withOps.total_cost).toBe(Math.round((base.total_cost + 25 + 39) * 100) / 100);
+    expect(withOps.total).toBeGreaterThan(base.total);
+  });
+
   it('surfaces the real target and minimum margin from the matched markup rule', () => {
     const product = { id: 'p1', name: 'Acrilico', product_group: 'acrilico', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
     const config = { markupRules: [{ product_group: 'acrilico', target_margin_pct: 45, minimum_margin_pct: 30 }] };

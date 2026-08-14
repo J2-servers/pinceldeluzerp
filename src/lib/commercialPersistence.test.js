@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSaleStockDeltas } from './commercialPersistence';
+import { buildSaleStockDeltas, commercialItemExtras, hydrateStoredItem } from './commercialPersistence';
 
 const unitProduct = (id, over = {}) => ({ id, name: id, pricing_mode: 'unitario', track_stock: true, auto_deduct_on_sale: true, quantity: 100, ...over });
 const areaProduct = (id, over = {}) => ({ id, name: id, pricing_mode: 'area_m2', track_area_stock: true, track_stock: true, auto_deduct_on_sale: true, quantity: 10, ...over });
@@ -55,5 +55,45 @@ describe('buildSaleStockDeltas', () => {
       { product_id: 'P1', quantity: 3 },
     ], products);
     expect(deltas.get('P1')).toBe(5);
+  });
+});
+
+describe('granular item persistence round-trip', () => {
+  it('serializes and restores materials, labor steps and machine ops', () => {
+    const item = {
+      product_id: 'P1',
+      quantity: 2,
+      materials: [{ product_id: 'M1', name: 'Chapa MDF', quantity: 1, waste_pct: 10, unit_cost: 20, sale_price: 0 }],
+      materials_list_cost: 44,
+      materials_list_sale: 88,
+      labor_steps: [{ name: 'Montagem', minutes: 5, cost_per_hour: 60, is_setup: false }],
+      machine_ops: [{ name: 'Corte', minutes: 4, cost_per_min: 2, length_m: 0, rate_per_m: 0, is_setup: false }],
+      labor_steps_cost: 10,
+      machine_ops_cost: 16,
+      additionals: [],
+    };
+    const extras = commercialItemExtras(item);
+    // Persisted as JSON strings (what the SQLite row stores).
+    expect(typeof extras.labor_steps_json).toBe('string');
+    expect(typeof extras.machine_ops_json).toBe('string');
+    expect(extras.labor_steps_cost).toBe(10);
+    expect(extras.machine_ops_cost).toBe(16);
+    expect(extras.materials_list_cost).toBe(44);
+
+    // Reopening the stored row rebuilds the arrays the editor needs.
+    const stored = { product_id: 'P1', quantity: 2, ...extras };
+    const restored = hydrateStoredItem(stored);
+    expect(restored.labor_steps).toEqual(item.labor_steps);
+    expect(restored.machine_ops).toEqual(item.machine_ops);
+    expect(restored.materials).toEqual(item.materials);
+  });
+
+  it('keeps empty granular lists as empty (no phantom rows on reopen)', () => {
+    const extras = commercialItemExtras({ product_id: 'P1', quantity: 1 });
+    expect(extras.labor_steps_json).toBe('');
+    expect(extras.machine_ops_json).toBe('');
+    const restored = hydrateStoredItem({ product_id: 'P1', ...extras });
+    expect(restored.labor_steps).toEqual([]);
+    expect(restored.machine_ops).toEqual([]);
   });
 });

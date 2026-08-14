@@ -141,6 +141,8 @@ export function commercialItemExtras(item) {
   const snapshot = item.pricing_snapshot ? JSON.stringify(item.pricing_snapshot) : '';
   const additionals = asArray(item.additionals);
   const materials = asArray(item.materials);
+  const laborSteps = asArray(item.labor_steps);
+  const machineOps = asArray(item.machine_ops);
   return {
     pricing_snapshot: snapshot,
     price_locked: !!item.price_locked,
@@ -149,6 +151,10 @@ export function commercialItemExtras(item) {
     materials_json: materials.length ? JSON.stringify(materials) : '',
     materials_list_cost: roundCurrency(parseDecimal(item.materials_list_cost)),
     materials_list_sale: roundCurrency(parseDecimal(item.materials_list_sale)),
+    labor_steps_json: laborSteps.length ? JSON.stringify(laborSteps) : '',
+    machine_ops_json: machineOps.length ? JSON.stringify(machineOps) : '',
+    labor_steps_cost: roundCurrency(parseDecimal(item.labor_steps_cost)),
+    machine_ops_cost: roundCurrency(parseDecimal(item.machine_ops_cost)),
     additionals_total: roundCurrency(parseDecimal(item.additionals_total)),
     discount_value: roundCurrency(parseDecimal(item.discount_value)),
     discount_applied: roundCurrency(parseDecimal(item.discount_applied)),
@@ -165,6 +171,8 @@ export function hydrateStoredItem(stored) {
     pricing_snapshot: snapshot || undefined,
     additionals: asArray(stored.additionals_json),
     materials: asArray(stored.materials_json),
+    labor_steps: asArray(stored.labor_steps_json),
+    machine_ops: asArray(stored.machine_ops_json),
     price_locked: !!stored.price_locked,
   };
 }

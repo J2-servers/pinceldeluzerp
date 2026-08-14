@@ -93,6 +93,58 @@ function LineMaterials({ materials, products = [], onChange }) {
   );
 }
 
+function LineLaborSteps({ steps, onChange }) {
+  const list = Array.isArray(steps) ? steps : [];
+  const update = (index, patch) => onChange(list.map((item, current) => (current === index ? { ...item, ...patch } : item)));
+  const remove = (index) => onChange(list.filter((_, current) => current !== index));
+  const add = () => onChange([...list, { name: '', minutes: 0, cost_per_hour: 0, is_setup: false }]);
+  return (
+    <div className="space-y-2">
+      {list.map((item, index) => {
+        const cost = (Number(item.minutes || 0) / 60) * Number(item.cost_per_hour || 0);
+        return (
+          <div key={index} className="grid grid-cols-12 items-center gap-2">
+            <Input className="col-span-12 h-10 rounded-xl text-xs sm:col-span-4" value={item.name || ''} onChange={(event) => update(index, { name: event.target.value })} placeholder="Etapa (preparo/corte/acabamento)" />
+            <Input className="col-span-4 h-10 rounded-xl text-xs sm:col-span-2" type="number" min="0" value={item.minutes} onChange={(event) => update(index, { minutes: event.target.value })} placeholder="min" />
+            <Input className="col-span-4 h-10 rounded-xl text-xs sm:col-span-2" type="number" min="0" value={item.cost_per_hour} onChange={(event) => update(index, { cost_per_hour: event.target.value })} placeholder="R$/h" />
+            <label className="col-span-4 flex items-center gap-1 text-[11px] font-bold text-slate-600 sm:col-span-2"><input type="checkbox" checked={!!item.is_setup} onChange={(event) => update(index, { is_setup: event.target.checked })} /> setup</label>
+            <span className="col-span-9 truncate text-xs font-bold text-slate-700 sm:col-span-1">{money(cost)}</span>
+            <button type="button" className="col-span-3 rounded-lg px-1.5 py-1 text-right text-xs font-bold text-red-700 hover:bg-red-50 sm:col-span-1" onClick={() => remove(index)}>remover</button>
+          </div>
+        );
+      })}
+      <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}><Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar etapa de mao de obra</button>
+    </div>
+  );
+}
+
+function LineMachineOps({ ops, onChange }) {
+  const list = Array.isArray(ops) ? ops : [];
+  const update = (index, patch) => onChange(list.map((item, current) => (current === index ? { ...item, ...patch } : item)));
+  const remove = (index) => onChange(list.filter((_, current) => current !== index));
+  const add = () => onChange([...list, { name: '', minutes: 0, cost_per_min: 0, length_m: 0, rate_per_m: 0, is_setup: false }]);
+  return (
+    <div className="space-y-2">
+      {list.map((item, index) => {
+        const cost = Number(item.minutes || 0) * Number(item.cost_per_min || 0) + Number(item.length_m || 0) * Number(item.rate_per_m || 0);
+        return (
+          <div key={index} className="grid grid-cols-12 items-center gap-2">
+            <Input className="col-span-12 h-10 rounded-xl text-xs sm:col-span-3" value={item.name || ''} onChange={(event) => update(index, { name: event.target.value })} placeholder="Operacao (corte/gravacao/CNC)" />
+            <Input className="col-span-4 h-10 rounded-xl text-xs sm:col-span-1" type="number" min="0" value={item.minutes} onChange={(event) => update(index, { minutes: event.target.value })} placeholder="min" />
+            <Input className="col-span-4 h-10 rounded-xl text-xs sm:col-span-2" type="number" step="any" min="0" value={item.cost_per_min} onChange={(event) => update(index, { cost_per_min: event.target.value })} placeholder="R$/min" />
+            <Input className="col-span-4 h-10 rounded-xl text-xs sm:col-span-1" type="number" step="any" min="0" value={item.length_m} onChange={(event) => update(index, { length_m: event.target.value })} placeholder="corte m" />
+            <Input className="col-span-4 h-10 rounded-xl text-xs sm:col-span-2" type="number" step="any" min="0" value={item.rate_per_m} onChange={(event) => update(index, { rate_per_m: event.target.value })} placeholder="R$/m" />
+            <label className="col-span-4 flex items-center gap-1 text-[11px] font-bold text-slate-600 sm:col-span-1"><input type="checkbox" checked={!!item.is_setup} onChange={(event) => update(index, { is_setup: event.target.checked })} /> setup</label>
+            <span className="col-span-2 truncate text-xs font-bold text-slate-700 sm:col-span-1">{money(cost)}</span>
+            <button type="button" className="col-span-2 rounded-lg px-1 py-1 text-right text-xs font-bold text-red-700 hover:bg-red-50 sm:col-span-1" onClick={() => remove(index)}>x</button>
+          </div>
+        );
+      })}
+      <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}><Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar operacao de maquina</button>
+    </div>
+  );
+}
+
 export default function LineItemEditor({
   line,
   dimensionsRequired,
@@ -172,6 +224,14 @@ export default function LineItemEditor({
             <SelectContent>{laborProfiles.map((item) => <SelectItem key={item.id} value={item.id}>{item.name || item.role || 'Mao de obra'}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+      </ConfigRow>
+
+      <ConfigRow title="Etapas de mao de obra" help="Detalhe as etapas (preparo, corte, acabamento, montagem), cada uma com tempo e custo/hora. Marque 'setup' quando o tempo for fixo por peca (nao multiplica pela quantidade).">
+        <LineLaborSteps steps={line.labor_steps} onChange={(next) => onChange('labor_steps', next)} />
+      </ConfigRow>
+
+      <ConfigRow title="Operacoes de maquina" help="Corte, gravacao ou CNC — cobra por minuto e/ou por comprimento de corte (m). Marque 'setup' para tempo fixo por peca.">
+        <LineMachineOps ops={line.machine_ops} onChange={(next) => onChange('machine_ops', next)} />
       </ConfigRow>
 
       <ConfigRow title="Desconto do item" help="Percentual ou valor fixo em R$ so neste item.">

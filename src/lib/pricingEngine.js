@@ -444,6 +444,32 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const materialsListCost = materialsUnitCost * quantity;
   const materialsListSale = materialsUnitSale * quantity;
 
+  const markupFactor = 1 / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100);
+
+  // Etapas de mao-de-obra itemizadas (preparo/corte/acabamento/montagem), cada
+  // uma com tempo e custo/hora proprios. is_setup = tempo fixo (nao multiplica
+  // pela quantidade da linha).
+  const laborSteps = Array.isArray(line.labor_steps) ? line.labor_steps : [];
+  const laborStepsCost = laborSteps.reduce((sum, step) => {
+    const minutes = parseDecimal(step.minutes);
+    const rate = parseDecimal(step.cost_per_hour) || parseDecimal(snapshot.labor.internal_hour_cost);
+    const base = (minutes / 60) * rate;
+    return sum + base * (step.is_setup ? 1 : quantity);
+  }, 0);
+  const laborStepsSale = laborStepsCost * markupFactor;
+
+  // Operacoes de maquina itemizadas (corte laser + gravacao + CNC), por tempo,
+  // comprimento de corte (m) ou area de gravacao (m2). is_setup = tempo fixo.
+  const machineOps = Array.isArray(line.machine_ops) ? line.machine_ops : [];
+  const machineOpsCost = machineOps.reduce((sum, op) => {
+    const byTime = parseDecimal(op.minutes) * (parseDecimal(op.cost_per_min) || parseDecimal(snapshot.machine.internal_minute_cost));
+    const byLength = parseDecimal(op.length_m) * parseDecimal(op.rate_per_m);
+    const byArea = parseDecimal(op.area_m2) * parseDecimal(op.rate_per_m2);
+    const base = byTime + byLength + byArea;
+    return sum + base * (op.is_setup ? 1 : quantity);
+  }, 0);
+  const machineOpsSale = machineOpsCost * markupFactor;
+
   // Adicionais nomeados de servico (ex.: "Taxa de urgencia", "Embalagem especial").
   const additionals = Array.isArray(line.additionals) ? line.additionals : [];
   const additionalsSum = additionals.reduce((sum, extra) => sum + parseDecimal(extra?.value), 0);
@@ -497,7 +523,7 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const setupSale = parseDecimal(snapshot.machine.setup_fee) + parseDecimal(service?.setup_fee);
   const designSale = firstPositive(line.art_price, line.design_price, service?.type === 'arte' ? service?.sale_price : 0, line.art_cost);
   const overheadCostTotal = (machineMinutes * parseDecimal(snapshot.machine.overhead_minute)) + (laborHours * parseDecimal(snapshot.labor.overhead_hour));
-  const serviceSaleTotal = laborSaleTotal + machineSaleTotal + setupSale + designSale;
+  const serviceSaleTotal = laborSaleTotal + machineSaleTotal + setupSale + designSale + laborStepsSale + machineOpsSale;
   const subtotal = materialSale + materialsListSale + serviceSaleTotal + additionalsSum;
 
   // Desconto da linha: percentual manual + percentual de regra (somados), mais um
@@ -509,7 +535,7 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const valueDiscount = Math.max(0, Math.min(rawValueDiscount, subtotal - pctDiscountValue));
   const discountApplied = pctDiscountValue + valueDiscount;
   const total = Math.max(0, subtotal - discountApplied);
-  const totalCost = materialTotalCost + laborCostTotal + machineCostTotal + overheadCostTotal;
+  const totalCost = materialTotalCost + laborCostTotal + machineCostTotal + overheadCostTotal + laborStepsCost + machineOpsCost;
   const profit = total - totalCost;
   const margin = total > 0 ? (profit / total) * 100 : 0;
   const minPrice = totalCost;
@@ -558,11 +584,15 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
       : material.missing_sale_price
         ? 'Material sem preco comercial cadastrado. O sistema estimou pelo custo e margem alvo.'
         : '',
-    labor_cost_total: roundCurrency(laborCostTotal),
-    machine_cost_total: roundCurrency(machineCostTotal),
+    labor_cost_total: roundCurrency(laborCostTotal + laborStepsCost),
+    machine_cost_total: roundCurrency(machineCostTotal + machineOpsCost),
     overhead_cost_total: roundCurrency(overheadCostTotal),
-    labor_sale_total: roundCurrency(laborSaleTotal),
-    machine_sale_total: roundCurrency(machineSaleTotal),
+    labor_sale_total: roundCurrency(laborSaleTotal + laborStepsSale),
+    machine_sale_total: roundCurrency(machineSaleTotal + machineOpsSale),
+    labor_steps: laborSteps,
+    machine_ops: machineOps,
+    labor_steps_cost: roundCurrency(laborStepsCost),
+    machine_ops_cost: roundCurrency(machineOpsCost),
     setup_sale_total: roundCurrency(setupSale),
     art_price: roundCurrency(designSale),
     art_cost: roundCurrency(designSale),
