@@ -56,7 +56,15 @@ async function request(path, options = {}) {
     payload = { error: text };
   }
   if (!response.ok) {
-    if (response.status === 401) clearStoredSession();
+    if (response.status === 401) {
+      const hadToken = !!session?.token;
+      clearStoredSession();
+      // Sessao invalida/expirada: avisa o app para cair no login em vez de
+      // deixar o usuario preso num dashboard quebrado com o usuario em cache.
+      if (hadToken && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('pincel:session-expired'));
+      }
+    }
     throw new Error(payload?.error || `Erro HTTP ${response.status}`);
   }
   return payload;

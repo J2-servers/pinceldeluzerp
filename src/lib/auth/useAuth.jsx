@@ -29,6 +29,13 @@ export function SessionProvider({ children }) {
     setUser(null);
   }, []);
 
+  // Sessão invalidada/expirada no backend (401) → volta pro login na hora.
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener('pincel:session-expired', onExpired);
+    return () => window.removeEventListener('pincel:session-expired', onExpired);
+  }, []);
+
   // renova sessão em atividade do usuário
   useEffect(() => {
     if (!user) return;
