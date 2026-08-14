@@ -34,6 +34,7 @@ const quoteHeader = {
   additionals: [],
   general_art_cost: 0,
   additional_charge: 0,
+  shipping_value: 0,
   valid_days: 7,
   deadline_days: 5,
   payment_conditions: '50% entrada, 50% na entrega',
@@ -55,12 +56,33 @@ const saleHeader = {
   additionals: [],
   general_art_cost: 0,
   additional_charge: 0,
+  shipping_value: 0,
   notes: '',
   created_by_partner: PARTNERS[0],
   margin_override_reason: '',
   status: 'novo',
   payment_status: 'pendente',
 };
+
+// Modelos de documento (item 19): guardados no navegador (localStorage) para
+// reaproveitar conjuntos de itens frequentes sem depender do backend.
+const TEMPLATES_KEY = 'pincel:commercial-templates';
+function loadCommercialTemplates() {
+  try {
+    const raw = window.localStorage.getItem(TEMPLATES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function persistCommercialTemplates(list) {
+  try {
+    window.localStorage.setItem(TEMPLATES_KEY, JSON.stringify(list));
+  } catch {
+    /* cota de storage cheia: ignora silenciosamente */
+  }
+}
 
 function Field({ label, children, help }) {
   return (
@@ -302,6 +324,8 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [editorLine, setEditorLine] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [templates, setTemplates] = useState(() => loadCommercialTemplates());
+  const [templateName, setTemplateName] = useState('');
 
   const { data: fixedExpenses = [] } = useQuery({ queryKey: ['pricing-fixed-expenses'], queryFn: () => erp.entities.FixedExpense.filter({ active: true }), enabled: open });
   const { data: machineCosts = [] } = useQuery({ queryKey: ['pricing-machine-costs'], queryFn: () => erp.entities.MachineCost.filter({ active: true }), enabled: open });
@@ -357,6 +381,7 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
     additionals: header.additionals,
     generalArtCost: header.general_art_cost,
     additionalCharge: header.additional_charge,
+    shippingValue: header.shipping_value,
   }), [items, header, mode]);
 
   // Menor margem minima entre os itens do documento — usada para avisar/bloquear
@@ -417,6 +442,42 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
   };
 
   const removeLine = (index) => setItems((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+
+  // Produtividade (item 18): duplicar uma linha (mesma configuracao/preco) e
+  // reordenar para cima/baixo sem reabrir o editor.
+  const duplicateLine = (index) => setItems((prev) => [
+    ...prev.slice(0, index + 1),
+    { ...prev[index] },
+    ...prev.slice(index + 1),
+  ]);
+  const moveLine = (index, direction) => setItems((prev) => {
+    const target = index + direction;
+    if (target < 0 || target >= prev.length) return prev;
+    const next = [...prev];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+
+  // Modelos (item 19): salva o conjunto de itens atual com um nome e reaproveita
+  // depois (anexa ao documento). Guardado por sobrescrita quando o nome repete.
+  const saveAsTemplate = () => {
+    const name = templateName.trim();
+    if (!name || !items.length) return;
+    const next = [...templates.filter((entry) => entry.name !== name), { name, items }];
+    setTemplates(next);
+    persistCommercialTemplates(next);
+    setTemplateName('');
+  };
+  const applyTemplate = (name) => {
+    const template = templates.find((entry) => entry.name === name);
+    if (!template) return;
+    setItems((prev) => [...prev, ...template.items.map((entry) => ({ ...entry }))]);
+  };
+  const deleteTemplate = (name) => {
+    const next = templates.filter((entry) => entry.name !== name);
+    setTemplates(next);
+    persistCommercialTemplates(next);
+  };
 
   const submitDocument = (action = 'save') => {
     if (alerts.length) return;
@@ -577,6 +638,11 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
                               <button type="button" className="min-h-9 rounded-xl bg-blue-600 px-2 text-xs font-black text-white shadow-sm hover:bg-blue-700" onClick={() => editLine(index)}>Editar</button>
                               <button type="button" className="min-h-9 rounded-xl bg-red-600 px-2 text-xs font-black text-white shadow-sm hover:bg-red-700" onClick={() => removeLine(index)}>Remover</button>
                             </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <button type="button" className="min-h-9 rounded-xl bg-slate-100 px-2 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-200" onClick={() => duplicateLine(index)}>Duplicar</button>
+                              <button type="button" disabled={index === 0} className="min-h-9 rounded-xl bg-slate-100 px-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-200 disabled:opacity-40" onClick={() => moveLine(index, -1)}>↑</button>
+                              <button type="button" disabled={index === items.length - 1} className="min-h-9 rounded-xl bg-slate-100 px-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-200 disabled:opacity-40" onClick={() => moveLine(index, 1)}>↓</button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -603,6 +669,40 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
                     )}
                   </div>
                 </div>
+              </div>
+              <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Frete e modelos</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <Field label="Frete (R$)" help="Repasse ao cliente; nao entra na margem.">
+                    <Input type="number" step="0.01" min="0" className="h-11 rounded-2xl" value={header.shipping_value || 0} onChange={(event) => setHeader((prev) => ({ ...prev, shipping_value: event.target.value }))} placeholder="0,00" />
+                  </Field>
+                  <Field label="Salvar itens como modelo" help="Fica salvo neste navegador.">
+                    <div className="flex gap-2">
+                      <Input className="h-11 rounded-2xl" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Nome do modelo" />
+                      <Button type="button" className="rounded-2xl" disabled={!items.length || !templateName.trim()} onClick={saveAsTemplate}>Salvar</Button>
+                    </div>
+                  </Field>
+                  <Field label="Usar modelo salvo" help="Anexa os itens do modelo ao documento.">
+                    <Select onValueChange={applyTemplate}>
+                      <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder={templates.length ? 'Escolher modelo' : 'Nenhum modelo salvo'} /></SelectTrigger>
+                      <SelectContent>
+                        {templates.map((entry) => (
+                          <SelectItem key={entry.name} value={entry.name}>{entry.name} ({entry.items.length} item{entry.items.length === 1 ? '' : 's'})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                {templates.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {templates.map((entry) => (
+                      <span key={entry.name} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
+                        {entry.name}
+                        <button type="button" className="text-sm text-red-600 hover:text-red-800" onClick={() => deleteTemplate(entry.name)}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           )}

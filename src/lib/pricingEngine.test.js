@@ -406,6 +406,17 @@ describe('summarizePricingDocument', () => {
     // (100 + 20 + 5) * 0.9
     expect(summary.totalFinal).toBe(112.5);
   });
+
+  it('adds document shipping to the final total as a pass-through, outside the profit (item 17)', () => {
+    const lines = [{ product_name: 'Item A', quantity: 1, unit: 'un', base_subtotal: 100, services_total: 0, total: 100, total_cost: 60 }];
+    const noShip = summarizePricingDocument(lines, {});
+    const shipped = summarizePricingDocument(lines, { shippingValue: 25 });
+    expect(shipped.shippingValue).toBe(25);
+    expect(shipped.totalFinal).toBe(noShip.totalFinal + 25);
+    // Frete e repasse: nao infla o lucro nem a margem.
+    expect(shipped.profit).toBe(noShip.profit);
+    expect(shipped.margin_pct).toBe(noShip.margin_pct);
+  });
 });
 
 function roundedDiff(a, b) {

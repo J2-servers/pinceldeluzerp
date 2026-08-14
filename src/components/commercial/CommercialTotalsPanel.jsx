@@ -138,6 +138,7 @@ export default function CommercialTotalsPanel({ totals, itemCount, alerts = [], 
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Composicao (ao vivo)</p>
                 {rows.map(([label, value]) => <MiniRow key={label} label={label} value={money(value)} />)}
                 {docDiscount > 0 && <MiniRow label="Desconto do documento" value={`- ${money(docDiscount)}`} tone="amber" />}
+                {Number(totals.shippingValue || 0) > 0 && <MiniRow label="Frete (repasse)" value={`+ ${money(totals.shippingValue)}`} />}
               </div>
             );
           })()}

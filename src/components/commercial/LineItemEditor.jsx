@@ -29,10 +29,22 @@ function Pill({ children, tone = 'slate' }) {
   return <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold ${tones[tone]}`}>{children}</span>;
 }
 
+// Catalogo de adicionais frequentes (item 15): atalhos que adicionam uma linha
+// ja rotulada; o valor fica editavel para ajuste caso-a-caso.
+const ADDITIONAL_CATALOG = [
+  'Acabamento especial',
+  'Montagem',
+  'Embalagem para presente',
+  'Taxa de urgencia',
+  'Instalacao',
+  'Verniz / laminacao',
+];
+
 function LineAdditionals({ additionals, onChange }) {
   const list = Array.isArray(additionals) ? additionals : [];
   const update = (index, field, value) => onChange(list.map((item, current) => current === index ? { ...item, [field]: value } : item));
   const add = () => onChange([...list, { label: '', value: '' }]);
+  const addFromCatalog = (label) => onChange([...list, { label, value: '' }]);
   const remove = (index) => onChange(list.filter((_, current) => current !== index));
   return (
     <div className="space-y-2">
@@ -43,6 +55,13 @@ function LineAdditionals({ additionals, onChange }) {
           <button type="button" className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-50" onClick={() => remove(index)}>Remover</button>
         </div>
       ))}
+      <div className="flex flex-wrap gap-1.5">
+        {ADDITIONAL_CATALOG.map((label) => (
+          <button key={label} type="button" className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700" onClick={() => addFromCatalog(label)}>
+            + {label}
+          </button>
+        ))}
+      </div>
       <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}>
         <Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar servico ao item
       </button>

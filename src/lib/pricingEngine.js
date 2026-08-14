@@ -695,11 +695,16 @@ export function summarizePricingDocument(lines, config = {}) {
   const rawValueDiscount = parseDecimal(config.discountValue);
   const valueDiscount = Math.max(0, Math.min(rawValueDiscount, subtotalBeforeDiscount - pctDiscount));
   const discountValue = pctDiscount + valueDiscount;
-  const totalFinal = Math.max(0, subtotalBeforeDiscount - discountValue);
-  const profit = totalFinal - totalCost;
-  const margin = totalFinal > 0 ? (profit / totalFinal) * 100 : 0;
+  // Frete (item 17): repasse ao cliente. Soma ao total pago, mas fica fora do
+  // lucro/margem (o frete cobre o custo do envio, nao e resultado).
+  const shippingValue = parseDecimal(config.shippingValue);
+  const totalAfterDiscount = Math.max(0, subtotalBeforeDiscount - discountValue);
+  const totalFinal = totalAfterDiscount + shippingValue;
+  const profit = totalAfterDiscount - totalCost;
+  const margin = totalAfterDiscount > 0 ? (profit / totalAfterDiscount) * 100 : 0;
 
   return {
+    shippingValue: roundCurrency(shippingValue),
     subtotalProducts: roundCurrency(subtotalProducts),
     subtotalServices: roundCurrency(subtotalServices),
     subtotalMachine: roundCurrency(subtotalMachine),
