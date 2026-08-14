@@ -246,6 +246,62 @@ describe('computeCommercialLine', () => {
     expect(withOps.total).toBeGreaterThan(base.total);
   });
 
+  it('rounds the line price to a configurable increment (item 10)', () => {
+    const product = { id: 'p1', name: 'Produto', sale_price: 97, cost_price: 40, pricing_mode: 'unitario' };
+    const baseNet = computeCommercialLine(product, { quantity: 1 }, {}).total_pretax;
+    const up = computeCommercialLine(product, { quantity: 1, round_to: 5, round_mode: 'up' }, {});
+    const nearest = computeCommercialLine(product, { quantity: 1, round_to: 5, round_mode: 'nearest' }, {});
+    const down = computeCommercialLine(product, { quantity: 1, round_to: 5, round_mode: 'down' }, {});
+    expect(up.total_pretax).toBe(Math.ceil(baseNet / 5) * 5);
+    expect(nearest.total_pretax).toBe(Math.round(baseNet / 5) * 5);
+    expect(down.total_pretax).toBe(Math.floor(baseNet / 5) * 5);
+    expect(up.total_pretax % 5).toBe(0);
+    expect(up.total_pretax).toBeGreaterThanOrEqual(down.total_pretax);
+  });
+
+  it('applies per-line quantity tiers, highest matched min wins (item 11)', () => {
+    const product = { id: 'p1', name: 'Produto', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
+    const line = { quantity: 10, qty_tiers: [{ min_qty: 5, unit_price: 80 }, { min_qty: 20, unit_price: 60 }] };
+    const result = computeCommercialLine(product, line, {});
+    expect(result.price_source).toBe('faixa_qtd');
+    expect(result.base_subtotal).toBe(800); // 80 x 10 (min_qty 20 nao atingido)
+    expect(result.price_tier_min_qty).toBe(5);
+  });
+
+  it('adds per-line tax as a pass-through without inflating margin (item 12)', () => {
+    const product = { id: 'p1', name: 'Produto', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
+    const noTax = computeCommercialLine(product, { quantity: 1 }, {});
+    const taxed = computeCommercialLine(product, { quantity: 1, tax_pct: 10 }, {});
+    const round2 = (x) => Math.round(x * 100) / 100;
+    expect(taxed.total_pretax).toBe(noTax.total_pretax);
+    expect(taxed.tax_value).toBe(round2(noTax.total_pretax * 0.1));
+    expect(taxed.total).toBe(round2(noTax.total_pretax * 1.1));
+    // Imposto e repasse: a margem segue calculada sobre o preco pre-imposto.
+    expect(taxed.margin_pct).toBe(noTax.margin_pct);
+  });
+
+  it('honors a closed negotiated unit price and recomputes margin, ignoring discount (item 13)', () => {
+    const product = { id: 'p1', name: 'Produto', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
+    const open = computeCommercialLine(product, { quantity: 2 }, {});
+    const closed = computeCommercialLine(product, { quantity: 2, closed_unit_price: 70, discount_pct: 50 }, {});
+    expect(closed.total_pretax).toBe(140); // 70 x 2, desconto ignorado
+    expect(closed.discount_applied).toBe(0);
+    expect(closed.price_source).toBe('formula');
+    expect(closed.margin_pct).toBeLessThan(open.margin_pct);
+    expect(closed.margin_pct).toBeGreaterThan(0);
+  });
+
+  it('overrides the target margin per line for the recommended price (item 10 markup)', () => {
+    const product = { id: 'p1', name: 'Produto', cost_price: 40, pricing_mode: 'unitario' };
+    const baseline = computeCommercialLine(product, { quantity: 1 }, {});
+    const result = computeCommercialLine(product, { quantity: 1, target_margin_override_pct: 50 }, {});
+    // recommended = custo / (1 - margem) ; a margem-alvo exposta reflete o override
+    // e muda o preco recomendado em relacao a margem global padrao.
+    expect(result.target_margin_pct).toBe(50);
+    expect(result.recommended_price).toBeCloseTo(result.total_cost / 0.5, 1);
+    expect(result.recommended_price).not.toBe(baseline.recommended_price);
+  });
+
   it('surfaces the real target and minimum margin from the matched markup rule', () => {
     const product = { id: 'p1', name: 'Acrilico', product_group: 'acrilico', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
     const config = { markupRules: [{ product_group: 'acrilico', target_margin_pct: 45, minimum_margin_pct: 30 }] };

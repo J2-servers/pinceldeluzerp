@@ -143,6 +143,7 @@ export function commercialItemExtras(item) {
   const materials = asArray(item.materials);
   const laborSteps = asArray(item.labor_steps);
   const machineOps = asArray(item.machine_ops);
+  const qtyTiers = asArray(item.qty_tiers);
   return {
     pricing_snapshot: snapshot,
     price_locked: !!item.price_locked,
@@ -155,6 +156,14 @@ export function commercialItemExtras(item) {
     machine_ops_json: machineOps.length ? JSON.stringify(machineOps) : '',
     labor_steps_cost: roundCurrency(parseDecimal(item.labor_steps_cost)),
     machine_ops_cost: roundCurrency(parseDecimal(item.machine_ops_cost)),
+    qty_tiers_json: qtyTiers.length ? JSON.stringify(qtyTiers) : '',
+    tax_pct: roundCurrency(parseDecimal(item.tax_pct)),
+    tax_value: roundCurrency(parseDecimal(item.tax_value)),
+    total_pretax: roundCurrency(parseDecimal(item.total_pretax)),
+    closed_unit_price: roundCurrency(parseDecimal(item.closed_unit_price)),
+    target_margin_override_pct: roundCurrency(parseDecimal(item.target_margin_override_pct)),
+    round_to: parseDecimal(item.round_to),
+    round_mode: item.round_mode || 'nearest',
     additionals_total: roundCurrency(parseDecimal(item.additionals_total)),
     discount_value: roundCurrency(parseDecimal(item.discount_value)),
     discount_applied: roundCurrency(parseDecimal(item.discount_applied)),
@@ -173,6 +182,7 @@ export function hydrateStoredItem(stored) {
     materials: asArray(stored.materials_json),
     labor_steps: asArray(stored.labor_steps_json),
     machine_ops: asArray(stored.machine_ops_json),
+    qty_tiers: asArray(stored.qty_tiers_json),
     price_locked: !!stored.price_locked,
   };
 }

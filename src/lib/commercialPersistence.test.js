@@ -70,15 +70,27 @@ describe('granular item persistence round-trip', () => {
       machine_ops: [{ name: 'Corte', minutes: 4, cost_per_min: 2, length_m: 0, rate_per_m: 0, is_setup: false }],
       labor_steps_cost: 10,
       machine_ops_cost: 16,
+      qty_tiers: [{ min_qty: 5, unit_price: 18 }],
+      tax_pct: 10,
+      tax_value: 8.8,
+      closed_unit_price: 44,
+      target_margin_override_pct: 55,
+      round_to: 0.5,
+      round_mode: 'up',
       additionals: [],
     };
     const extras = commercialItemExtras(item);
     // Persisted as JSON strings (what the SQLite row stores).
     expect(typeof extras.labor_steps_json).toBe('string');
     expect(typeof extras.machine_ops_json).toBe('string');
+    expect(typeof extras.qty_tiers_json).toBe('string');
     expect(extras.labor_steps_cost).toBe(10);
     expect(extras.machine_ops_cost).toBe(16);
     expect(extras.materials_list_cost).toBe(44);
+    expect(extras.tax_pct).toBe(10);
+    expect(extras.closed_unit_price).toBe(44);
+    expect(extras.round_to).toBe(0.5);
+    expect(extras.round_mode).toBe('up');
 
     // Reopening the stored row rebuilds the arrays the editor needs.
     const stored = { product_id: 'P1', quantity: 2, ...extras };
@@ -86,6 +98,9 @@ describe('granular item persistence round-trip', () => {
     expect(restored.labor_steps).toEqual(item.labor_steps);
     expect(restored.machine_ops).toEqual(item.machine_ops);
     expect(restored.materials).toEqual(item.materials);
+    expect(restored.qty_tiers).toEqual(item.qty_tiers);
+    expect(restored.round_mode).toBe('up');
+    expect(restored.target_margin_override_pct).toBe(55);
   });
 
   it('keeps empty granular lists as empty (no phantom rows on reopen)', () => {
@@ -95,5 +110,7 @@ describe('granular item persistence round-trip', () => {
     const restored = hydrateStoredItem({ product_id: 'P1', ...extras });
     expect(restored.labor_steps).toEqual([]);
     expect(restored.machine_ops).toEqual([]);
+    expect(restored.qty_tiers).toEqual([]);
+    expect(extras.qty_tiers_json).toBe('');
   });
 });

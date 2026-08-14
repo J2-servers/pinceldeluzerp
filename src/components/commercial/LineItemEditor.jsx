@@ -145,6 +145,27 @@ function LineMachineOps({ ops, onChange }) {
   );
 }
 
+function LineQtyTiers({ tiers, onChange }) {
+  const list = Array.isArray(tiers) ? tiers : [];
+  const update = (index, patch) => onChange(list.map((item, current) => (current === index ? { ...item, ...patch } : item)));
+  const remove = (index) => onChange(list.filter((_, current) => current !== index));
+  const add = () => onChange([...list, { min_qty: 1, unit_price: 0 }]);
+  return (
+    <div className="space-y-2">
+      {list.map((item, index) => (
+        <div key={index} className="grid grid-cols-12 items-center gap-2">
+          <span className="col-span-3 text-xs font-bold text-slate-600 sm:col-span-2">A partir de</span>
+          <Input className="col-span-3 h-10 rounded-xl text-xs sm:col-span-3" type="number" min="1" value={item.min_qty} onChange={(event) => update(index, { min_qty: event.target.value })} placeholder="qtd" />
+          <span className="col-span-2 text-center text-xs text-slate-400 sm:col-span-1">un</span>
+          <Input className="col-span-3 h-10 rounded-xl text-xs sm:col-span-4" type="number" step="any" min="0" value={item.unit_price} onChange={(event) => update(index, { unit_price: event.target.value })} placeholder="R$/un" />
+          <button type="button" className="col-span-1 text-right text-xs font-bold text-red-700 hover:text-red-900 sm:col-span-2" onClick={() => remove(index)}>x</button>
+        </div>
+      ))}
+      <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}><Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar faixa de preco por quantidade</button>
+    </div>
+  );
+}
+
 export default function LineItemEditor({
   line,
   dimensionsRequired,
@@ -245,6 +266,54 @@ export default function LineItemEditor({
         <LineAdditionals additionals={line.additionals} onChange={(next) => onChange('additionals', next)} />
       </ConfigRow>
 
+      <ConfigRow title="Faixas por quantidade" help="Preco unitario especial de atacado a partir de certa quantidade. A maior faixa atingida vence e sobrepoe o preco calculado.">
+        <LineQtyTiers tiers={line.qty_tiers} onChange={(next) => onChange('qty_tiers', next)} />
+      </ConfigRow>
+
+      <ConfigRow title="Preco avancado" help="Margem-alvo so desta linha, imposto (repasse), arredondamento comercial e preco fechado negociado.">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-bold text-slate-500">Margem-alvo (%) desta linha</label>
+            <Input className="h-11 rounded-2xl" type="number" step="any" min="0" max="99" value={line.target_margin_override_pct || 0} onChange={(event) => onChange('target_margin_override_pct', event.target.value)} placeholder="usa a padrao" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold text-slate-500">Imposto (%) — repasse</label>
+            <Input className="h-11 rounded-2xl" type="number" step="any" min="0" max="100" value={line.tax_pct || 0} onChange={(event) => onChange('tax_pct', event.target.value)} placeholder="0" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold text-slate-500">Arredondar preco para</label>
+            <Select value={String(line.round_to || 0)} onValueChange={(value) => onChange('round_to', value)}>
+              <SelectTrigger className="h-11 rounded-2xl"><SelectValue placeholder="Nao arredondar" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Nao arredondar</SelectItem>
+                <SelectItem value="0.05">R$ 0,05</SelectItem>
+                <SelectItem value="0.1">R$ 0,10</SelectItem>
+                <SelectItem value="0.5">R$ 0,50</SelectItem>
+                <SelectItem value="1">R$ 1,00</SelectItem>
+                <SelectItem value="5">R$ 5,00</SelectItem>
+                <SelectItem value="10">R$ 10,00</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-bold text-slate-500">Modo de arredondamento</label>
+            <Select value={line.round_mode || 'nearest'} onValueChange={(value) => onChange('round_mode', value)}>
+              <SelectTrigger className="h-11 rounded-2xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nearest">Mais proximo</SelectItem>
+                <SelectItem value="up">Sempre para cima</SelectItem>
+                <SelectItem value="down">Sempre para baixo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-[11px] font-bold text-slate-500">Preco fechado (R$/un) — negociado</label>
+            <Input className="h-11 rounded-2xl" type="number" step="any" min="0" value={line.closed_unit_price || 0} onChange={(event) => onChange('closed_unit_price', event.target.value)} placeholder="deixe 0 para usar o calculo" />
+            <p className="mt-1 text-[11px] text-slate-400">Quando preenchido, congela o preco da linha e recalcula a margem (ignora desconto e arredondamento).</p>
+          </div>
+        </div>
+      </ConfigRow>
+
       <div className="mt-4 rounded-[24px] bg-slate-950 p-5 text-white">
         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Composicao do preco</p>
         <div className="mt-3 space-y-1.5">
@@ -267,6 +336,18 @@ export default function LineItemEditor({
             <div className="flex items-center justify-between text-sm text-amber-300">
               <span>Desconto do item</span>
               <span className="font-semibold">- {money(discountApplied)}</span>
+            </div>
+          )}
+          {Number(line.tax_value) > 0 && (
+            <div className="flex items-center justify-between text-sm text-slate-300">
+              <span>Imposto ({Number(line.tax_pct || 0)}%) — repasse</span>
+              <span className="font-semibold">+ {money(line.tax_value)}</span>
+            </div>
+          )}
+          {Number(line.closed_unit_price) > 0 && (
+            <div className="flex items-center justify-between text-sm text-blue-300">
+              <span>Preco fechado (negociado)</span>
+              <span className="font-semibold">{money(line.closed_unit_price)}/un</span>
             </div>
           )}
         </div>

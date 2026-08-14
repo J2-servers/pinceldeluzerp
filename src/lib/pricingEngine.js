@@ -91,6 +91,17 @@ function firstPositive(...values) {
   return 0;
 }
 
+// Arredonda `value` para o multiplo mais proximo (mode 'nearest'), para cima
+// ('up') ou para baixo ('down') de `increment`. increment<=0 devolve o valor
+// intacto. Usado no arredondamento comercial de preco por linha (item 10).
+function roundToIncrement(value, increment, mode = 'nearest') {
+  const step = parseDecimal(increment);
+  if (step <= 0) return value;
+  const ratio = value / step;
+  const rounded = mode === 'up' ? Math.ceil(ratio) : mode === 'down' ? Math.floor(ratio) : Math.round(ratio);
+  return rounded * step;
+}
+
 function activeRows(rows = []) {
   return rows.filter((row) => row && row.active !== false);
 }
@@ -418,6 +429,12 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const pricingMode = product.dimensions_required ? 'area_m2' : (product.pricing_mode || line.pricing_mode || 'unitario');
   const snapshot = line.pricing_snapshot || createPricingSnapshot({ product, line, context, pricingMode });
   const service = snapshot.service;
+  // Item 10: markup por linha — sobrescreve a margem-alvo apenas nesta linha
+  // quando informada (>0). Afeta preco de formula, markup de materiais/MO/maquina
+  // e o preco recomendado/alvo. Sem valor, usa a margem-alvo global.
+  const lineTargetMargin = parseDecimal(line.target_margin_override_pct) > 0
+    ? parseDecimal(line.target_margin_override_pct)
+    : snapshot.rules.target_margin_pct;
   const laborMinutes = firstPositive(line.labor_minutes, parseDecimal(line.labor_hours) * 60, service?.default_labor_minutes);
   const laborHours = laborMinutes / 60;
   const machineMinutes = firstPositive(line.machine_time_min, service?.default_machine_minutes);
@@ -438,13 +455,13 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
     const cost = parseDecimal(item.unit_cost) * q * (1 + waste / 100);
     const sale = parseDecimal(item.sale_price) > 0
       ? parseDecimal(item.sale_price) * q
-      : cost / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100);
+      : cost / Math.max(0.01, 1 - lineTargetMargin / 100);
     return sum + sale;
   }, 0);
   const materialsListCost = materialsUnitCost * quantity;
   const materialsListSale = materialsUnitSale * quantity;
 
-  const markupFactor = 1 / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100);
+  const markupFactor = 1 / Math.max(0.01, 1 - lineTargetMargin / 100);
 
   // Etapas de mao-de-obra itemizadas (preparo/corte/acabamento/montagem), cada
   // uma com tempo e custo/hora proprios. is_setup = tempo fixo (nao multiplica
@@ -481,18 +498,30 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const clientRule = priceLocked ? null : findClientPriceRule(product, clientId, quantity, context);
   const volumeRule = priceLocked ? null : findVolumePrice(product, quantity, context);
 
+  // Item 11: faixas de preco por quantidade definidas na propria linha. A maior
+  // faixa cuja quantidade minima e atingida vence, e sobrepoe as regras
+  // automaticas de cliente/volume (intencao explicita do operador nesta linha).
+  const qtyTiers = Array.isArray(line.qty_tiers) ? line.qty_tiers : [];
+  const matchedTier = priceLocked ? null : qtyTiers
+    .filter((tier) => quantity >= parseDecimal(tier.min_qty) && parseDecimal(tier.unit_price) > 0)
+    .sort((a, b) => parseDecimal(b.min_qty) - parseDecimal(a.min_qty))[0] || null;
+
   let materialSale = 0;
   let appliedBasePrice = 0;
   let priceSource = 'formula';
   let fixedPriceFromRule = false;
 
   const formulaBase = (mode) => (mode === 'area_m2'
-    ? firstPositive(material.sale_price_per_m2, product.price_per_m2, line.base_price, material.cost_per_m2 / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100))
-    : firstPositive(material.unit_sale_price, product.sale_price, line.base_price, (parseDecimal(product.cost_price) / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100))));
+    ? firstPositive(material.sale_price_per_m2, product.price_per_m2, line.base_price, material.cost_per_m2 / Math.max(0.01, 1 - lineTargetMargin / 100))
+    : firstPositive(material.unit_sale_price, product.sale_price, line.base_price, (parseDecimal(product.cost_price) / Math.max(0.01, 1 - lineTargetMargin / 100))));
 
   if (priceLocked && parseDecimal(line.base_price) > 0) {
     appliedBasePrice = parseDecimal(line.base_price);
     priceSource = 'locked';
+  } else if (matchedTier) {
+    appliedBasePrice = parseDecimal(matchedTier.unit_price);
+    priceSource = 'faixa_qtd';
+    fixedPriceFromRule = true;
   } else if (clientRule && clientRule.price > 0) {
     appliedBasePrice = clientRule.price;
     priceSource = clientRule.source;
@@ -534,12 +563,29 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const rawValueDiscount = parseDecimal(line.discount_value);
   const valueDiscount = Math.max(0, Math.min(rawValueDiscount, subtotal - pctDiscountValue));
   const discountApplied = pctDiscountValue + valueDiscount;
-  const total = Math.max(0, subtotal - discountApplied);
+
   const totalCost = materialTotalCost + laborCostTotal + machineCostTotal + overheadCostTotal + laborStepsCost + machineOpsCost;
-  const profit = total - totalCost;
-  const margin = total > 0 ? (profit / total) * 100 : 0;
+
+  // Item 13: preco fechado (negociado) por unidade — congela o total pre-imposto
+  // da linha, ignora desconto/arredondamento e recalcula a margem a partir do
+  // custo. Item 10: arredondamento comercial do preco (multiplo configuravel).
+  const closedUnitPrice = parseDecimal(line.closed_unit_price);
+  const closedPrice = closedUnitPrice > 0;
+  const netAfterDiscount = Math.max(0, subtotal - discountApplied);
+  const netBeforeTax = closedPrice
+    ? closedUnitPrice * quantity
+    : roundToIncrement(netAfterDiscount, line.round_to, line.round_mode);
+  const effectiveDiscountApplied = closedPrice ? 0 : discountApplied;
+
+  // Item 12: imposto por linha — pass-through somado ao total (fora do lucro).
+  const taxPct = Math.min(100, Math.max(0, parseDecimal(line.tax_pct)));
+  const taxValue = netBeforeTax * (taxPct / 100);
+  const total = netBeforeTax + taxValue;
+
+  const profit = netBeforeTax - totalCost;
+  const margin = netBeforeTax > 0 ? (profit / netBeforeTax) * 100 : 0;
   const minPrice = totalCost;
-  const targetPrice = totalCost / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100);
+  const targetPrice = totalCost / Math.max(0.01, 1 - lineTargetMargin / 100);
   const minimumMarginPrice = totalCost / Math.max(0.01, 1 - snapshot.rules.minimum_margin_pct / 100);
 
   const descriptionParts = [product.name, `Qtd: ${quantity} ${line.unit || product.unit || 'un'}`];
@@ -605,13 +651,21 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
     discount_pct: manualDiscountPct,
     rule_discount_pct: roundCurrency(ruleDiscountPct),
     discount_value: roundCurrency(valueDiscount),
-    discount_applied: roundCurrency(discountApplied),
+    discount_applied: roundCurrency(effectiveDiscountApplied),
     price_source: priceSource,
     price_locked: priceLocked,
+    total_pretax: roundCurrency(netBeforeTax),
+    tax_pct: roundCurrency(taxPct),
+    tax_value: roundCurrency(taxValue),
+    closed_unit_price: closedPrice ? roundCurrency(closedUnitPrice) : 0,
+    price_tier_min_qty: matchedTier ? parseDecimal(matchedTier.min_qty) : 0,
+    target_margin_override_pct: roundCurrency(parseDecimal(line.target_margin_override_pct)),
+    round_to: parseDecimal(line.round_to),
+    round_mode: line.round_mode || 'nearest',
     profit: roundCurrency(profit),
     margin_pct: roundCurrency(margin),
     min_price: roundCurrency(minPrice),
-    target_margin_pct: roundCurrency(snapshot.rules.target_margin_pct),
+    target_margin_pct: roundCurrency(lineTargetMargin),
     min_margin_pct: roundCurrency(snapshot.rules.minimum_margin_pct),
     recommended_price: roundCurrency(targetPrice),
     minimum_margin_price: roundCurrency(minimumMarginPrice),
