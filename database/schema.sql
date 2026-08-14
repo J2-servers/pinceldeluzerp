@@ -508,7 +508,8 @@ CREATE TABLE IF NOT EXISTS "Goal" (
   "current_value" REAL,
   "type" TEXT,
   "deadline" TEXT,
-  "completed" INTEGER
+  "completed" INTEGER,
+  "seller" TEXT
 );
 
 CREATE INDEX IF NOT EXISTS "idx_Goal_created_date" ON "Goal" ("created_date");
@@ -1039,6 +1040,42 @@ CREATE INDEX IF NOT EXISTS "idx_ProductAttributeValue_updated_date" ON "ProductA
 CREATE INDEX IF NOT EXISTS "idx_ProductAttributeValue_created_by_id" ON "ProductAttributeValue" ("created_by_id");
 
 CREATE INDEX IF NOT EXISTS "idx_ProductAttributeValue_attribute_id" ON "ProductAttributeValue" ("attribute_id");
+
+CREATE TABLE IF NOT EXISTS "ProductBOMItem" (
+  "id" TEXT PRIMARY KEY,
+  "created_date" TEXT,
+  "updated_date" TEXT,
+  "created_by_id" TEXT,
+  "created_by" TEXT,
+  "updated_by" TEXT,
+  "is_sample" INTEGER,
+  "product_id" TEXT,
+  "line_type" TEXT,
+  "component_product_id" TEXT,
+  "component_name" TEXT,
+  "quantity" REAL,
+  "unit" TEXT,
+  "waste_pct" REAL,
+  "operation_name" TEXT,
+  "machine_minutes" REAL,
+  "machine_cost_per_min" REAL,
+  "labor_minutes" REAL,
+  "labor_cost_per_hour" REAL,
+  "unit_cost" REAL,
+  "line_cost" REAL,
+  "notes" TEXT,
+  "sort_order" REAL
+);
+
+CREATE INDEX IF NOT EXISTS "idx_ProductBOMItem_created_date" ON "ProductBOMItem" ("created_date");
+
+CREATE INDEX IF NOT EXISTS "idx_ProductBOMItem_updated_date" ON "ProductBOMItem" ("updated_date");
+
+CREATE INDEX IF NOT EXISTS "idx_ProductBOMItem_created_by_id" ON "ProductBOMItem" ("created_by_id");
+
+CREATE INDEX IF NOT EXISTS "idx_ProductBOMItem_product_id" ON "ProductBOMItem" ("product_id");
+
+CREATE INDEX IF NOT EXISTS "idx_ProductBOMItem_component_product_id" ON "ProductBOMItem" ("component_product_id");
 
 CREATE TABLE IF NOT EXISTS "ProductBarcode" (
   "id" TEXT PRIMARY KEY,

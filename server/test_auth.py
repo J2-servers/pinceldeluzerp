@@ -1,4 +1,16 @@
-from server.auth import constant_time_eq, generate_session_token, hash_password, verify_password
+"""Teste unitario do modulo auth (import via sys.path, como os demais testes
+de servidor). Verifica o PBKDF2 compativel com o frontend e os utilitarios de
+sessao. Nao sobe servidor nem toca no banco real."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+SERVER_DIR = Path(__file__).resolve().parent
+if str(SERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVER_DIR))
+
+from auth import constant_time_eq, generate_session_token, hash_password, verify_password  # noqa: E402 - precisa vir depois do sys.path.insert
 
 
 def test_hash_then_verify_roundtrip():
