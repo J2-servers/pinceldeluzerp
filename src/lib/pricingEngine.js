@@ -423,6 +423,27 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const machineMinutes = firstPositive(line.machine_time_min, service?.default_machine_minutes);
   const material = materialCostForProduct(product, line, pricingMode, context);
 
+  // Materiais extras itemizados na linha (mini-ficha da peca): cada um com
+  // quantidade por unidade do produto, perda e custo/preco do estoque. Somam
+  // ao custo e ao preco, por unidade x quantidade da linha.
+  const extraMaterials = Array.isArray(line.materials) ? line.materials : [];
+  const materialsUnitCost = extraMaterials.reduce((sum, item) => {
+    const q = parseDecimal(item.quantity);
+    const waste = parseDecimal(item.waste_pct);
+    return sum + parseDecimal(item.unit_cost) * q * (1 + waste / 100);
+  }, 0);
+  const materialsUnitSale = extraMaterials.reduce((sum, item) => {
+    const q = parseDecimal(item.quantity);
+    const waste = parseDecimal(item.waste_pct);
+    const cost = parseDecimal(item.unit_cost) * q * (1 + waste / 100);
+    const sale = parseDecimal(item.sale_price) > 0
+      ? parseDecimal(item.sale_price) * q
+      : cost / Math.max(0.01, 1 - snapshot.rules.target_margin_pct / 100);
+    return sum + sale;
+  }, 0);
+  const materialsListCost = materialsUnitCost * quantity;
+  const materialsListSale = materialsUnitSale * quantity;
+
   // Adicionais nomeados de servico (ex.: "Taxa de urgencia", "Embalagem especial").
   const additionals = Array.isArray(line.additionals) ? line.additionals : [];
   const additionalsSum = additionals.reduce((sum, extra) => sum + parseDecimal(extra?.value), 0);
@@ -468,7 +489,7 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
     else if (volumeRule && volumeRule.discount_percent > 0) ruleDiscountPct = volumeRule.discount_percent;
   }
 
-  const materialTotalCost = material.direct + material.waste;
+  const materialTotalCost = material.direct + material.waste + materialsListCost;
   const laborCostTotal = laborHours * parseDecimal(snapshot.labor.internal_hour_cost);
   const machineCostTotal = machineMinutes * parseDecimal(snapshot.machine.internal_minute_cost);
   const laborSaleTotal = laborHours * parseDecimal(snapshot.labor.sale_hour_price);
@@ -477,7 +498,7 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
   const designSale = firstPositive(line.art_price, line.design_price, service?.type === 'arte' ? service?.sale_price : 0, line.art_cost);
   const overheadCostTotal = (machineMinutes * parseDecimal(snapshot.machine.overhead_minute)) + (laborHours * parseDecimal(snapshot.labor.overhead_hour));
   const serviceSaleTotal = laborSaleTotal + machineSaleTotal + setupSale + designSale;
-  const subtotal = materialSale + serviceSaleTotal + additionalsSum;
+  const subtotal = materialSale + materialsListSale + serviceSaleTotal + additionalsSum;
 
   // Desconto da linha: percentual manual + percentual de regra (somados), mais um
   // desconto em R$ opcional. Nunca deixa o total negativo.
@@ -515,7 +536,10 @@ export function computeCommercialLine(product = {}, line = {}, config = {}) {
     machine_cost_per_min: roundCurrency(snapshot.machine.internal_minute_cost),
     labor_sale_hour: roundCurrency(snapshot.labor.sale_hour_price),
     machine_sale_minute: roundCurrency(snapshot.machine.sale_minute_price),
-    base_subtotal: roundCurrency(materialSale),
+    base_subtotal: roundCurrency(materialSale + materialsListSale),
+    materials: extraMaterials,
+    materials_list_cost: roundCurrency(materialsListCost),
+    materials_list_sale: roundCurrency(materialsListSale),
     services_total: roundCurrency(serviceSaleTotal),
     material_cost_direct: roundCurrency(material.direct),
     material_waste_cost: roundCurrency(material.waste),

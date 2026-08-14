@@ -50,12 +50,56 @@ function LineAdditionals({ additionals, onChange }) {
   );
 }
 
+function LineMaterials({ materials, products = [], onChange }) {
+  const list = Array.isArray(materials) ? materials : [];
+  const update = (index, patch) => onChange(list.map((item, current) => (current === index ? { ...item, ...patch } : item)));
+  const remove = (index) => onChange(list.filter((_, current) => current !== index));
+  const add = () => onChange([...list, { product_id: '', name: '', quantity: 1, waste_pct: 0, unit: 'un', unit_cost: 0, sale_price: 0 }]);
+  const pick = (index, productId) => {
+    const p = products.find((item) => item.id === productId);
+    update(index, { product_id: productId, name: p?.name || '', unit: p?.unit || 'un', unit_cost: Number(p?.cost_price || 0), sale_price: Number(p?.sale_price || 0) });
+  };
+  return (
+    <div className="space-y-2">
+      {list.map((item, index) => {
+        const cost = Number(item.unit_cost || 0) * Number(item.quantity || 0) * (1 + Number(item.waste_pct || 0) / 100);
+        return (
+          <div key={index} className="grid grid-cols-12 items-end gap-2">
+            <div className="col-span-12 sm:col-span-5">
+              <Select value={item.product_id || undefined} onValueChange={(value) => pick(index, value)}>
+                <SelectTrigger className="h-10 rounded-xl text-xs"><SelectValue placeholder="Material do estoque" /></SelectTrigger>
+                <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} · {money(p.cost_price)}/{p.unit || 'un'}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-4 sm:col-span-2">
+              <Input className="h-10 rounded-xl text-xs" type="number" step="any" min="0" value={item.quantity} onChange={(event) => update(index, { quantity: event.target.value })} placeholder={`Qtd/${item.unit || 'un'}`} />
+            </div>
+            <div className="col-span-4 sm:col-span-2">
+              <Input className="h-10 rounded-xl text-xs" type="number" step="any" min="0" value={item.waste_pct} onChange={(event) => update(index, { waste_pct: event.target.value })} placeholder="Perda %" />
+            </div>
+            <div className="col-span-3 sm:col-span-2">
+              <span className="block truncate rounded-lg bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700">{money(cost)}</span>
+            </div>
+            <div className="col-span-1 flex justify-end">
+              <button type="button" className="rounded-lg px-1.5 py-1 text-xs font-bold text-red-700 hover:bg-red-50" onClick={() => remove(index)}>x</button>
+            </div>
+          </div>
+        );
+      })}
+      <button type="button" className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" onClick={add}>
+        <Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar material do estoque
+      </button>
+    </div>
+  );
+}
+
 export default function LineItemEditor({
   line,
   dimensionsRequired,
   machineProfiles = [],
   laborProfiles = [],
   serviceProfiles = [],
+  products = [],
   onChange,
   onSave,
   saveLabel = 'Adicionar item',
@@ -103,6 +147,10 @@ export default function LineItemEditor({
 
       <ConfigRow title="Detalhes" help="Arte, gravacao, corte, acabamento ou observacoes.">
         <Textarea className="min-h-24 rounded-2xl text-base" value={line.art_description || ''} onChange={(event) => onChange('art_description', event.target.value)} placeholder="Ex: corte a laser + gravacao da logo no MDF" />
+      </ConfigRow>
+
+      <ConfigRow title="Materiais da peca" help="Materia-prima consumida do estoque, por unidade (com perda). Soma ao custo e ao preco.">
+        <LineMaterials materials={line.materials} products={products} onChange={(next) => onChange('materials', next)} />
       </ConfigRow>
 
       <ConfigRow title="Producao" help="Use padrao quando nao precisar alterar servico ou tempo.">

@@ -492,6 +492,7 @@ export default function CommercialAssistantDialog({ mode = 'quote', open, onClos
                 machineProfiles={machineCosts}
                 laborProfiles={laborProfiles}
                 serviceProfiles={serviceProfiles}
+                products={products}
                 onChange={(field, value) => setEditorLine((prev) => ({ ...prev, [field]: value }))}
                 onSave={saveLine}
                 saveLabel={editingIndex === null ? `Adicionar ao ${documentName}` : 'Salvar alteracoes'}

@@ -140,11 +140,15 @@ export async function restoreSaleStock(items, products, { referenceId, reason, u
 export function commercialItemExtras(item) {
   const snapshot = item.pricing_snapshot ? JSON.stringify(item.pricing_snapshot) : '';
   const additionals = asArray(item.additionals);
+  const materials = asArray(item.materials);
   return {
     pricing_snapshot: snapshot,
     price_locked: !!item.price_locked,
     price_source: item.price_source || 'formula',
     additionals_json: additionals.length ? JSON.stringify(additionals) : '',
+    materials_json: materials.length ? JSON.stringify(materials) : '',
+    materials_list_cost: roundCurrency(parseDecimal(item.materials_list_cost)),
+    materials_list_sale: roundCurrency(parseDecimal(item.materials_list_sale)),
     additionals_total: roundCurrency(parseDecimal(item.additionals_total)),
     discount_value: roundCurrency(parseDecimal(item.discount_value)),
     discount_applied: roundCurrency(parseDecimal(item.discount_applied)),
@@ -160,6 +164,7 @@ export function hydrateStoredItem(stored) {
     ...stored,
     pricing_snapshot: snapshot || undefined,
     additionals: asArray(stored.additionals_json),
+    materials: asArray(stored.materials_json),
     price_locked: !!stored.price_locked,
   };
 }

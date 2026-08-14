@@ -208,6 +208,24 @@ describe('computeCommercialLine', () => {
     expect(withExtra.additionals_total).toBe(25);
   });
 
+  it('adds itemized extra materials to the line cost and price', () => {
+    const product = { id: 'p1', name: 'Produto Teste', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
+    const base = computeCommercialLine(product, { quantity: 2 }, {});
+    const withMaterials = computeCommercialLine(product, {
+      quantity: 2,
+      materials: [
+        { name: 'Acrilico', quantity: 1, waste_pct: 10, unit_cost: 10, sale_price: 25 },
+        { name: 'Ferragem', quantity: 2, waste_pct: 0, unit_cost: 5 },
+      ],
+    }, {});
+    // custo por unidade: 10*1*1.1 + 5*2 = 21 ; x qtd 2 = 42
+    expect(withMaterials.materials_list_cost).toBe(42);
+    expect(withMaterials.total_cost).toBe(Math.round((base.total_cost + 42) * 100) / 100);
+    expect(withMaterials.materials_list_sale).toBeGreaterThan(0);
+    expect(withMaterials.total).toBeGreaterThan(base.total);
+    expect(withMaterials.base_subtotal).toBeGreaterThan(base.base_subtotal);
+  });
+
   it('surfaces the real target and minimum margin from the matched markup rule', () => {
     const product = { id: 'p1', name: 'Acrilico', product_group: 'acrilico', sale_price: 100, cost_price: 40, pricing_mode: 'unitario' };
     const config = { markupRules: [{ product_group: 'acrilico', target_margin_pct: 45, minimum_margin_pct: 30 }] };
